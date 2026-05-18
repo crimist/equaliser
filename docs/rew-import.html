@@ -6,8 +6,8 @@
     <title>REW Import - Equaliser Documentation</title>
     <meta name="description" content="Import filter settings from Room EQ Wizard. Learn the supported format and troubleshooting.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/rew-import.html">
-    <link rel="stylesheet" href="../style.css?9052eb2">
-    <link rel="icon" href="../assets/AppIcon.svg?9052eb2" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?d22560a">
+    <link rel="icon" href="../assets/AppIcon.svg?d22560a" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -19,7 +19,7 @@
 
     <main class="docs-content">
 <h1 id="importing-rew-filter-settings">Importing REW Filter Settings</h1>
-<p>Equaliser can import filter settings exported from <a href="https://www.roomeqwizard.com/">Room EQ Wizard (REW)</a>, allowing you to use REW's measurement and optimisation tools with Equaliser's real-time audio processing.</p>
+<p>Equaliser can import filter settings exported from <a href="https://www.roomeqwizard.com/">Room EQ Wizard (REW)</a>, allowing you to use REW’s measurement and optimisation tools with Equaliser’s real-time audio processing.</p>
 <h2 id="exporting-from-rew">Exporting from REW</h2>
 <ol type="1">
 <li>In REW, go to <strong>Equalizer</strong> → <strong>Export filter settings</strong></li>
@@ -230,21 +230,17 @@ Filter  2: ON  PK   Fc    45Hz   Gain  -2.0dB  BW/60  3.0
 Filter  3: ON  LS   Fc    80Hz   Gain   0.0dB  Q  0.707
 Filter  4: ON  LP   Fc    80Hz   Q  0.707</code></pre>
 <h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="no-filter-settings-found-in-file">"No filter settings found in file"</h3>
-<p>The file doesn't contain any valid filter lines. Ensure you exported <strong>filter settings</strong>, not measurement data.</p>
+<h3 id="no-filter-settings-found-in-file">“No filter settings found in file”</h3>
+<p>The file doesn’t contain any valid filter lines. Ensure you exported <strong>filter settings</strong>, not measurement data.</p>
 <h3 id="values-clamped-warning">Values clamped warning</h3>
-<p>REW exported values outside Equaliser's supported range. The values have been adjusted automatically. Check the imported bands and adjust if needed.</p>
+<p>REW exported values outside Equaliser’s supported range. The values have been adjusted automatically. Check the imported bands and adjust if needed.</p>
 <h3 id="filter-type-shows-as-parametric-instead-of-expected-type">Filter type shows as Parametric instead of expected type</h3>
-<p>REW may use a filter type abbreviation Equaliser doesn't recognise. Unknown types default to parametric. Check that your REW version uses standard abbreviations (PK, LS, HS, LP, HP, etc.).</p>
+<p>REW may use a filter type abbreviation Equaliser doesn’t recognise. Unknown types default to parametric. Check that your REW version uses standard abbreviations (PK, LS, HS, LP, HP, etc.).</p>
 <h3 id="wrong-number-of-bands">Wrong number of bands</h3>
-<p>Imported filters depend on their state:</p>
-<ul>
-<li><code>ON</code> filters are imported as active bands</li>
-<li><code>OFF</code> filters are imported as bypassed bands</li>
-<li><code>None</code> filters are skipped entirely</li>
-</ul>
+<p>Imported filters depend on their state: - <code>ON</code> filters are imported as active bands - <code>OFF</code> filters are imported as bypassed bands - <code>None</code> filters are skipped entirely</p>
 <h3 id="stereo-import-affects-both-channels">Stereo import affects both channels</h3>
-<p>You're in linked mode. Switch to stereo mode before importing to apply filters to only the focused channel.</p>
+<p>You’re in linked mode. Switch to stereo mode before importing to apply filters to only the focused channel.</p>
+
     </main>
 
     <footer>

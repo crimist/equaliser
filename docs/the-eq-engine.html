@@ -6,8 +6,8 @@
     <title>The EQ Engine - Equaliser Documentation</title>
     <meta name="description" content="A detailed look at the biquad DSP engine that powers Equaliser's audio processing. Learn about filter design, real-time safety, and stereo processing.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/the-eq-engine.html">
-    <link rel="stylesheet" href="../style.css?9052eb2">
-    <link rel="icon" href="../assets/AppIcon.svg?9052eb2" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?d22560a">
+    <link rel="icon" href="../assets/AppIcon.svg?d22560a" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -19,41 +19,39 @@
 
     <main class="docs-content">
 <h1 id="the-equaliser-engine">The Equaliser Engine</h1>
-<p>A detailed look at the custom biquad DSP engine that powers Equaliser's audio processing.</p>
+<p>A detailed look at the custom biquad DSP engine that powers Equaliser’s audio processing.</p>
 <hr />
 <h2 id="overview">Overview</h2>
-<p>Equaliser processes audio using a <strong>custom biquad DSP engine</strong> built specifically for real-time, low-latency equalisation on macOS. This engine is written in Swift and leverages Apple's vDSP framework for native performance on Apple Silicon.</p>
-<p>Why custom? Most EQ apps use Apple's <code>AVAudioUnitEQ</code>, which limits control and doesn't support independent left/right channel processing. Equaliser's custom engine provides:</p>
+<p>Equaliser processes audio using a <strong>custom biquad DSP engine</strong> built specifically for real-time, low-latency equalisation on macOS. This engine is written in Swift and leverages Apple’s vDSP framework for native performance on Apple Silicon.</p>
+<p>Why custom? Most EQ apps use Apple’s <code>AVAudioUnitEQ</code>, which limits control and doesn’t support independent left/right channel processing. Equaliser’s custom engine provides:</p>
 <ul>
 <li><strong>64 bands per channel</strong> (128 total in stereo mode)</li>
 <li><strong>Independent L/R channels</strong> for stereo mastering</li>
 <li><strong>Real-time safety</strong> — no allocations or locks on the audio thread</li>
-<li><strong>Native performance</strong> through Apple's Accelerate framework</li>
+<li><strong>Native performance</strong> through Apple’s Accelerate framework</li>
 </ul>
 <hr />
 <h2 id="what-is-a-biquad-filter">What Is a Biquad Filter?</h2>
 <p>A <strong>biquad</strong> (bi-quadratic) filter is a digital filter that can implement any second-order IIR (infinite impulse response) filter. The term comes from the transfer function being a ratio of two quadratic polynomials.</p>
-<p>Every parametric EQ band you adjust — whether it's a bell curve, low shelf, or high-pass — is implemented as a single biquad filter. When you have 10 bands of EQ, you're chaining 10 biquads in series:</p>
+<p>Every parametric EQ band you adjust — whether it’s a bell curve, low shelf, or high-pass — is implemented as a single biquad filter. When you have 10 bands of EQ, you’re chaining 10 biquads in series:</p>
 <pre><code>[Audio In] → [Biquad 1] → [Biquad 2] → ... → [Biquad N] → [Audio Out]</code></pre>
-<p>Each biquad has five coefficients (a1, a2, b0, b1, b2) that define its frequency response. When you adjust a band's frequency, Q, or gain, Equaliser recalculates these coefficients and sends them to the audio thread.</p>
+<p>Each biquad has five coefficients (a1, a2, b0, b1, b2) that define its frequency response. When you adjust a band’s frequency, Q, or gain, Equaliser recalculates these coefficients and sends them to the audio thread.</p>
 <details>
-<summary>⚙️ Technical Details: The Transfer Function</summary>
+<summary>
+⚙️ Technical Details: The Transfer Function
+</summary>
 <p>A biquad filter is defined by its transfer function in the z-domain:</p>
 <pre><code>        b0 + b1·z⁻¹ + b2·z⁻²
 H(z) = ─────────────────────
         1 + a1·z⁻¹ + a2·z⁻²</code></pre>
-<p>The five coefficients (b0, b1, b2, a1, a2) determine the filter's behaviour:</p>
-<ul>
-<li><strong>b0, b1, b2</strong>: Feedforward coefficients (numerator)</li>
-<li><strong>a1, a2</strong>: Feedback coefficients (denominator)</li>
-</ul>
+<p>The five coefficients (b0, b1, b2, a1, a2) determine the filter’s behaviour: - <strong>b0, b1, b2</strong>: Feedforward coefficients (numerator) - <strong>a1, a2</strong>: Feedback coefficients (denominator)</p>
 <p>Each sample y[n] is computed from the input x[n] and previous samples:</p>
 <pre><code>y[n] = b0·x[n] + b1·x[n-1] + b2·x[n-2] - a1·y[n-1] - a2·y[n-2]</code></pre>
-<p>The "delay elements" (x[n-1], y[n-1], etc.) give the filter its memory — this is why IIR filters can achieve steep slopes with few coefficients.</p>
+<p>The “delay elements” (x[n-1], y[n-1], etc.) give the filter its memory — this is why IIR filters can achieve steep slopes with few coefficients.</p>
 </details>
 <hr />
 <h2 id="the-rbj-audio-eq-cookbook">The RBJ Audio EQ Cookbook</h2>
-<p>Equaliser's coefficient calculations follow the <strong>RBJ Audio EQ Cookbook</strong>, an industry-standard reference by Robert Bristow-Johnson. Originally published on the music-dsp mailing list in the 1990s, the Cookbook provides closed-form equations for every common audio filter type.</p>
+<p>Equaliser’s coefficient calculations follow the <strong>RBJ Audio EQ Cookbook</strong>, an industry-standard reference by Robert Bristow-Johnson. Originally published on the music-dsp mailing list in the 1990s, the Cookbook provides closed-form equations for every common audio filter type.</p>
 <p><strong>Why the Cookbook?</strong></p>
 <ul>
 <li><strong>Proven correctness</strong> — Used by countless audio applications, DAWs, and plugins</li>
@@ -119,16 +117,16 @@ H(z) = ─────────────────────
 </table>
 <hr />
 <h2 id="why-swift-vdsp">Why Swift + vDSP?</h2>
-<p>Equaliser's engine is written in <strong>Swift</strong> and uses <strong>Apple's vDSP</strong> (part of the Accelerate framework) for the actual filtering operations. This combination delivers native performance with clean, maintainable code.</p>
+<p>Equaliser’s engine is written in <strong>Swift</strong> and uses <strong>Apple’s vDSP</strong> (part of the Accelerate framework) for the actual filtering operations. This combination delivers native performance with clean, maintainable code.</p>
 <h3 id="what-is-vdsp">What Is vDSP?</h3>
-<p>vDSP is Apple's vectorised Digital Signal Processing library, optimised for Apple Silicon:</p>
+<p>vDSP is Apple’s vectorised Digital Signal Processing library, optimised for Apple Silicon:</p>
 <ul>
 <li><strong>SIMD operations</strong> — Process 4-8 samples per instruction</li>
 <li><strong>NEON acceleration</strong> — Native ARM64 vector instructions</li>
 <li><strong>Zero allocation</strong> — All operations work on pre-allocated buffers</li>
 </ul>
 <h3 id="why-not-avaudiouniteq">Why Not AVAudioUnitEQ?</h3>
-<p>Apple's <code>AVAudioUnitEQ</code> is convenient but limiting:</p>
+<p>Apple’s <code>AVAudioUnitEQ</code> is convenient but limiting:</p>
 <table>
 <thead>
 <tr>
@@ -161,7 +159,9 @@ H(z) = ─────────────────────
 </tbody>
 </table>
 <details>
-<summary>⚙️ Technical Details: Double-Precision Coefficients</summary>
+<summary>
+⚙️ Technical Details: Double-Precision Coefficients
+</summary>
 <p>Equaliser calculates filter coefficients using <strong>Double</strong> (64-bit) precision, then converts to <strong>Float</strong> (32-bit) for the vDSP operations.</p>
 <p>Why Double for calculation?</p>
 <ul>
@@ -174,13 +174,13 @@ H(z) = ─────────────────────
 <hr />
 <h2 id="real-time-safety">Real-Time Safety</h2>
 <p>Audio processing must happen in <strong>real-time</strong> — the next buffer of samples must be ready before the speaker needs them. If processing takes too long, you get <strong>dropouts</strong>: clicks, pops, or gaps in the audio.</p>
-<p>Equaliser's engine is designed from the ground up for real-time safety:</p>
+<p>Equaliser’s engine is designed from the ground up for real-time safety:</p>
 <table>
 <colgroup>
 <col style="width: 26%" />
-<col style="width: 17%" />
-<col style="width: 22%" />
-<col style="width: 35%" />
+<col style="width: 19%" />
+<col style="width: 41%" />
+<col style="width: 12%" />
 </colgroup>
 <thead>
 <tr>
@@ -237,8 +237,8 @@ hasPendingUpdate.store(true, .releasing)        │
                                                 │
                                                 ▼
                                 for each band where pending != active:
-                                    filter.setCoefficients(pending)
-                                    // vDSP setup recreated here
+                                    filter.setCoefficients(pending, setup: preBuiltSetup)
+                                    // vDSP setup pre-created on main thread
                                                 │
                                                 ▼
                                     process audio with new coefficients</code></pre>
@@ -246,8 +246,8 @@ hasPendingUpdate.store(true, .releasing)        │
 <ol type="1">
 <li><strong>No locks</strong> — Atomic flag synchronises threads without blocking</li>
 <li><strong>Dirty tracking</strong> — Only changed bands trigger rebuild (<code>Equatable</code> comparison). A single-band slider drag rebuilds exactly 1 filter.</li>
-<li><strong>Bounded setup recreation</strong> — <code>vDSP_biquad_CreateSetup</code> is called on the audio thread, but only for dirty bands. The setup object doesn't allocate memory; it's a pre-sized data structure.</li>
-<li><strong>State preserved</strong> — Slider drags don't reset filter delay elements (no clicks). Only preset loads and sample rate changes reset state.</li>
+<li><strong>Bounded setup recreation</strong> — <code>vDSP_biquad_CreateSetup</code> is called on the audio thread, but only for dirty bands. The setup object doesn’t allocate memory; it’s a pre-sized data structure.</li>
+<li><strong>State preserved</strong> — Slider drags don’t reset filter delay elements (no clicks). Only preset loads and sample rate changes reset state.</li>
 </ol>
 <h3 id="why-this-matters">Why This Matters</h3>
 <p>Without real-time safety:</p>
@@ -256,20 +256,22 @@ hasPendingUpdate.store(true, .releasing)        │
 <li><strong>Allocations cause VM faults</strong> — First access to new memory can take 100s of milliseconds</li>
 <li><strong>Unbounded work causes underruns</strong> — Processing might not finish in time</li>
 </ul>
-<p>Equaliser's engine guarantees: every filter operation completes in bounded time, every time.</p>
+<p>Equaliser’s engine guarantees: every filter operation completes in bounded time, every time.</p>
 <details>
-<summary>⚙️ Technical Details: vDSP Biquad Setup</summary>
+<summary>
+⚙️ Technical Details: vDSP Biquad Setup
+</summary>
 <p>Each biquad filter requires a <strong>setup object</strong> (<code>vDSP_biquad_Setup</code>) that holds internal state. Creating and destroying these objects is expensive.</p>
-<p>Equaliser's <code>BiquadFilter</code> manages this carefully:</p>
-<pre><code>// Init: create setup once
-let setup = vDSP_biquad_CreateSetup(&amp;coefficients, 1, .intersect)
-
-// Runtime: reuse setup, only update coefficients
-vDSP_biquad(setup, &amp;input, &amp;output, 1, frameCount)
-
-// Coefficients change: destroy old setup, create new one
-vDSP_biquad_DestroySetup(setup)
-let newSetup = vDSP_biquad_CreateSetup(&amp;newCoefficients, 1, .intersect)</code></pre>
+<p>Equaliser’s <code>BiquadFilter</code> manages this carefully:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode swift"><code class="sourceCode swift"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Init: create setup once</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> <span class="va">setup</span> <span class="op">=</span> vDSP_biquad_CreateSetup<span class="op">(&amp;</span>coefficients<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="op">.</span>intersect<span class="op">)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Runtime: reuse setup, only update coefficients</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>vDSP_biquad<span class="op">(</span>setup<span class="op">,</span> <span class="op">&amp;</span>input<span class="op">,</span> <span class="op">&amp;</span>output<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> frameCount<span class="op">)</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Coefficients change: destroy old setup, create new one</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>vDSP_biquad_DestroySetup<span class="op">(</span>setup<span class="op">)</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> <span class="va">newSetup</span> <span class="op">=</span> vDSP_biquad_CreateSetup<span class="op">(&amp;</span>newCoefficients<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="op">.</span>intersect<span class="op">)</span></span></code></pre></div>
 <p>The setup is only recreated when coefficients actually change, and the old setup is kept valid until the new one is ready. This prevents any gap in processing.</p>
 </details>
 <hr />
@@ -322,8 +324,9 @@ let newSetup = vDSP_biquad_CreateSetup(&amp;newCoefficients, 1, .intersect)</cod
 <li><strong><a href="how-it-works.html">How It Works</a></strong> — Overview of the complete audio pipeline</li>
 <li><strong><a href="eq-presets-guide.html">EQ Presets Guide</a></strong> — Understanding factory presets</li>
 <li><strong><a href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ Audio EQ Cookbook</a></strong> — The original reference</li>
-<li><strong><a href="https://developer.apple.com/documentation/accelerate/vdsp">Apple vDSP Documentation</a></strong> — Apple's DSP framework</li>
+<li><strong><a href="https://developer.apple.com/documentation/accelerate/vdsp">Apple vDSP Documentation</a></strong> — Apple’s DSP framework</li>
 </ul>
+
     </main>
 
     <footer>

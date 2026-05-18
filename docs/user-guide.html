@@ -6,8 +6,8 @@
     <title>User Guide - Equaliser Documentation</title>
     <meta name="description" content="A practical guide to using Equaliser. Learn about the menu bar controls, main window features, presets, bypass and compare modes, and essential tips.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/user-guide.html">
-    <link rel="stylesheet" href="../style.css?9052eb2">
-    <link rel="icon" href="../assets/AppIcon.svg?9052eb2" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?d22560a">
+    <link rel="icon" href="../assets/AppIcon.svg?d22560a" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -30,7 +30,7 @@
 </ol>
 <hr />
 <h2 id="the-menu-bar">The Menu Bar</h2>
-<p>The Equaliser icon lives in your menu bar and is the quickest way to control the app without interrupting what you're doing. From there you can toggle EQ on and off, switch presets, open the main window, or quit entirely.</p>
+<p>The Equaliser icon lives in your menu bar and is the quickest way to control the app without interrupting what you’re doing. From there you can toggle EQ on and off, switch presets, open the main window, or quit entirely.</p>
 <hr />
 <h2 id="the-main-window">The Main Window</h2>
 <p>Open the main window from the menu bar for full control over your EQ.</p>
@@ -39,7 +39,7 @@
 <p>Click the gear icon on any band to open a popover with full controls: <strong>gain</strong> (how much to boost or cut, from -36 dB to +36 dB), <strong>frequency</strong> (where in the spectrum the band is centred, from 20 Hz to 20 kHz), <strong>bandwidth</strong> (Q), and <strong>filter type</strong> (parametric, shelf, etc.).</p>
 <p>Bandwidth is expressed as a Q factor from 0.1 to 100 — think of it as zoom. A high Q zooms in tight on a single frequency for a precise, surgical adjustment; a low Q affects a wider range for a broad, gentle curve.</p>
 <h3 id="channel-mode">Channel Mode</h3>
-<p>Above the sliders, you can switch between <strong>Linked</strong> (both channels share the same EQ) and <strong>Stereo</strong> (left and right channels have independent EQ curves). In Stereo mode, use the L/R toggle to choose which channel you're editing.</p>
+<p>Above the sliders, you can switch between <strong>Linked</strong> (both channels share the same EQ) and <strong>Stereo</strong> (left and right channels have independent EQ curves). In Stereo mode, use the L/R toggle to choose which channel you’re editing.</p>
 <h3 id="keyboard-shortcuts">Keyboard Shortcuts</h3>
 <table>
 <thead>
@@ -79,28 +79,29 @@
 <h3 id="factory-presets">Factory Presets</h3>
 <p>Equaliser ships with eleven presets covering common listening scenarios — <strong>Flat</strong> for reference, <strong>Bass Boost</strong> and <strong>Treble Boost</strong> for emphasis, <strong>Vocal Presence</strong> and <strong>Podcast</strong> for speech, and genre-specific curves for Rock, Electronic, Jazz, Classical, and more. See the <a href="eq-presets-guide.html">EQ Presets Guide</a> for a detailed explanation of each one.</p>
 <h3 id="saving-your-own-presets">Saving Your Own Presets</h3>
-<p>Once you've dialled in a sound you like, click <strong>Save As…</strong> in the preset menu and give it a name. It's worth keeping separate presets for headphones and speakers — the same EQ rarely sounds right on both.</p>
+<p>Once you’ve dialled in a sound you like, click <strong>Save As…</strong> in the preset menu and give it a name. It’s worth keeping separate presets for headphones and speakers — the same EQ rarely sounds right on both.</p>
 <h3 id="importing-presets">Importing Presets</h3>
 <p>Equaliser can import <code>.eqpreset</code> files, EasyEffects presets from Linux, and filter files from Room EQ Wizard (REW). See <a href="rew-import.html">REW Import</a> for details on the REW workflow.</p>
 <hr />
 <h2 id="bypass-compare">Bypass &amp; Compare</h2>
 <p><strong>Bypass</strong> (the power toggle) turns off all EQ processing so audio passes through completely unchanged. Use it to disable the EQ without quitting the app.</p>
-<p><strong>Compare mode</strong> is more useful for critical listening. It A/B tests your EQ against a flat, volume-matched response — so you're hearing a real difference, not just a loudness difference. Toggle between EQ and Flat to check whether your curve is actually improving the sound. A timer switches back to EQ automatically after 5 minutes.</p>
+<p><strong>Compare mode</strong> is more useful for critical listening. It A/B tests your EQ against a flat, volume-matched response — so you’re hearing a real difference, not just a loudness difference. Toggle between EQ and Flat to check whether your curve is actually improving the sound. A timer switches back to EQ automatically after 5 minutes.</p>
 <hr />
 <h2 id="settings">Settings</h2>
 <p>Click the gear icon in the top right to access settings.</p>
-<p><strong>Driver</strong> lets you install or uninstall the Equaliser virtual audio driver, and switch between capture modes. Most users should leave this on <strong>Shared Memory</strong> (the default) — it doesn't show the orange menu bar indicator.</p>
+<p><strong>Driver</strong> lets you install or uninstall the Equaliser virtual audio driver, and switch between capture modes. Most users should leave this on <strong>Shared Memory</strong> (the default) — it doesn’t show the orange menu bar indicator.</p>
 <p>Note: macOS will request microphone permission regardless of capture mode. This is required for the audio routing pipeline. Grant permission for full functionality, or deny if you only use Automatic mode with Shared Memory capture.</p>
 <p><strong>Devices</strong> controls how Equaliser selects your output. <strong>Automatic</strong> mode (recommended) handles this for you; <strong>Manual</strong> mode lets you pick a specific output device.</p>
-<p><strong>Preferences</strong> lets you display bandwidth as Q factor or octaves depending on what you're used to.</p>
+<p><strong>Preferences</strong> lets you display bandwidth as Q factor or octaves depending on what you’re used to.</p>
 <hr />
 <h2 id="tips">Tips</h2>
-<p><strong>Start subtle.</strong> Small adjustments — a dB or two — usually sound more natural than dramatic boosts or cuts. It's easy to overcook an EQ.</p>
+<p><strong>Start subtle.</strong> Small adjustments — a dB or two — usually sound more natural than dramatic boosts or cuts. It’s easy to overcook an EQ.</p>
 <p><strong>Cut more than you boost.</strong> If something sounds harsh or muddy, try cutting the problem frequency rather than boosting elsewhere. It tends to sound cleaner and avoids gain buildup.</p>
-<p><strong>Use Compare mode honestly.</strong> Louder almost always sounds "better" — Compare mode removes that variable, so you can judge the EQ on its actual merits.</p>
+<p><strong>Use Compare mode honestly.</strong> Louder almost always sounds “better” — Compare mode removes that variable, so you can judge the EQ on its actual merits.</p>
 <p><strong>Create presets per output.</strong> Headphones and speakers need different EQ. Save separate presets for each so switching is just a click away.</p>
 <hr />
 <p>For deeper reading: <a href="how-it-works.html">How It Works</a> covers the audio pipeline, and <a href="the-eq-engine.html">The EQ Engine</a> goes into the DSP details.</p>
+
     </main>
 
     <footer>
