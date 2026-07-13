@@ -133,20 +133,21 @@ final class EqualiserStoreTests: XCTestCase {
         XCTAssertEqual(result, .useMacDefault("airpods"))
     }
 
-    func testDetermineAutomaticOutputDevice_preservesCurrent_overMacDefault() {
+    func testDetermineAutomaticOutputDevice_usesMacDefault_overStaleSavedSelection() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
-            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", transportType: 0),
+            AudioDevice(id: 1, uid: "speakers", name: "Built-in Speakers", transportType: 0),
+            AudioDevice(id: 2, uid: "headphones", name: "Headphone Out", transportType: 0),
         ]
 
-        // Valid current selection should take precedence over mac default
+        // The saved selection can be stale when the user changes the macOS
+        // output device while Equaliser is not running.
         let result = OutputDeviceSelection.determine(
-            currentSelected: "airpods",
-            macDefault: "builtin",
+            currentSelected: "speakers",
+            macDefault: "headphones",
             availableDevices: devices
         )
 
-        XCTAssertEqual(result, .preserveCurrent("airpods"))
+        XCTAssertEqual(result, .useMacDefault("headphones"))
     }
 
     func testDetermineAutomaticOutputDevice_noCurrent_noMacDefault_needsFallback() {

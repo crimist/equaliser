@@ -27,18 +27,20 @@ enum OutputDeviceSelection: Equatable {
         macDefault: String?,
         availableDevices: [AudioDevice]
     ) -> OutputDeviceSelection {
-        // If current selection exists and isn't the driver, preserve it
-        if let current = currentSelected,
-           let device = availableDevices.first(where: { $0.uid == current }),
-           device.isValidForSelection {
-            return .preserveCurrent(current)
-        }
-
-        // If macOS default exists and isn't the driver, use it
+        // A valid macOS default reflects the device selected before routing starts.
+        // Prefer it over a potentially stale selection restored from saved state.
         if let defaultUID = macDefault,
            let device = availableDevices.first(where: { $0.uid == defaultUID }),
            device.isValidForSelection {
             return .useMacDefault(defaultUID)
+        }
+
+        // While routing is active, macOS defaults to the driver. Preserve the
+        // physical output selected by the app in that case.
+        if let current = currentSelected,
+           let device = availableDevices.first(where: { $0.uid == current }),
+           device.isValidForSelection {
+            return .preserveCurrent(current)
         }
 
         // Otherwise need fallback
