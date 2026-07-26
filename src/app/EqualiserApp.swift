@@ -1,13 +1,22 @@
 import SwiftUI
 
-// MARK: - Cleanup Delegate
+// MARK: - Application Delegate
 
 @MainActor
-final class AppCleanupDelegate: NSObject, NSApplicationDelegate {
+final class EqualiserAppDelegate: NSObject, NSApplicationDelegate {
     private weak var store: EqualiserStore?
+    private let menuBarRightClickController = MenuBarRightClickController()
 
     func setStore(_ store: EqualiserStore) {
         self.store = store
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        menuBarRightClickController.start()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        menuBarRightClickController.stop()
     }
 }
 
@@ -17,7 +26,7 @@ final class AppCleanupDelegate: NSObject, NSApplicationDelegate {
 struct EqualiserMain: App {
     @StateObject private var store = EqualiserStore()
     @StateObject private var windowActivation = WindowActivationController()
-    @NSApplicationDelegateAdaptor(AppCleanupDelegate.self) var appDelegate
+    @NSApplicationDelegateAdaptor(EqualiserAppDelegate.self) var appDelegate
 
     init() {
         // IMPORTANT: Do NOT access @StateObject (self.store) here.
