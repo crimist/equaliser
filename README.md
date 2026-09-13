@@ -36,6 +36,7 @@ Level meters allow you to monitor both **input and output signals** in real time
 - **Compare Mode** — quickly A/B your EQ curve against a flat response.  
 - **Independent L/R EQ** — separate left/right channel curves for channel-specific adjustments.  
 - **Presets** — 11 carefully crafted presets for music, movies, and more.  
+- **Per-output presets** — automatically load a saved preset when switching speakers or headphones.
 - **Native light and dark mode** — adapts automatically to your macOS system appearance.  
 - **Real-time level meters** — monitor input/output and avoid distortion.  
 - **Automatic Audio Routing** — automatically captures macOS selected output device.  
@@ -72,6 +73,12 @@ nix develop
 3. (Optional) Grant microphone permission if you want to use advanced features - can also be granted later in settings.
 
 Equaliser handles all audio routing automatically — no configuration needed.
+
+### Automatic Presets
+
+In the preset menu, open **Automatic Preset for [output name]** and choose a preset. This loads its saved settings immediately and whenever you switch back to that output, replacing any unsaved EQ edits. Outputs without an assignment keep the current EQ.
+
+Choose **None — Keep Current Preset** to remove an assignment. Assignments use device UIDs, survive preset renames, and stay on this Mac when presets are exported.
 
 ## Uninstall
 

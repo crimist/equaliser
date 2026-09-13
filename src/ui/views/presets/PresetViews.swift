@@ -116,6 +116,20 @@ struct PresetMenuContentView: View {
         }
 
         Divider()
+        if let device = viewModel.outputDevice {
+            Menu("Automatic Preset for \(device.displayName)") {
+                Picker("Preset", selection: Binding(
+                    get: { viewModel.outputPresetName },
+                    set: { viewModel.updateOutputPreset(named: $0) }
+                )) {
+                    Text("None — Keep Current Preset").tag(String?.none)
+                    ForEach(viewModel.presets) { preset in
+                        Text(preset.metadata.name).tag(Optional(preset.metadata.name))
+                    }
+                }
+                .pickerStyle(.inline)
+            }
+        }
     }
 
     @ViewBuilder

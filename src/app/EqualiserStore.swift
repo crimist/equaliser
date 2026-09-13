@@ -231,7 +231,7 @@ final class EqualiserStore: ObservableObject {
     
     // MARK: - Initialization
     
-    init(persistence: AppStatePersistence = AppStatePersistence()) {
+    init(persistence: AppStatePersistence = AppStatePersistence(), presetManager: PresetManager = PresetManager()) {
         self.persistence = persistence
         
         // Load snapshot if exists
@@ -245,7 +245,7 @@ final class EqualiserStore: ObservableObject {
         }
         
         // Initialize other components
-        self.presetManager = PresetManager()
+        self.presetManager = presetManager
         self.meterStore = MeterStore(metersEnabled: snapshot?.metersEnabled ?? true)
         
         // Create services
@@ -312,6 +312,13 @@ final class EqualiserStore: ObservableObject {
             restoreAutomaticOutputDevice(currentSelected: nil)
         }
         
+        // Apply the restored output's assignment before audio starts, then follow all
+        // selection paths (manual, system default, disconnect fallback and reconnect).
+        routingCoordinator.onOutputDeviceChanged = { [weak self] uid in
+            self?.loadOutputPreset(for: uid)
+        }
+        loadOutputPreset(for: selectedOutputDeviceID)
+
         // Start observing system default changes
         systemDefaultObserver.startObserving()
         
@@ -516,6 +523,11 @@ final class EqualiserStore: ObservableObject {
     }
     
     // MARK: - Preset Management
+
+    private func loadOutputPreset(for uid: String?) {
+        guard let uid, let preset = presetManager.preset(forOutputDevice: uid) else { return }
+        loadPreset(preset)
+    }
     
     /// Saves the current EQ settings as a new preset.
     @discardableResult
