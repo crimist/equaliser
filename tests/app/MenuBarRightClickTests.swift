@@ -3,7 +3,7 @@ import XCTest
 @testable import Equaliser
 
 @MainActor
-final class MenuBarRightClickControllerTests: XCTestCase {
+final class MenuBarRightClickTests: XCTestCase {
     func testRightClickOnStatusBarButtonPerformsClickAndConsumesEvent() throws {
         let target = ClickTarget()
         let button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 24, height: 24))
@@ -32,7 +32,7 @@ final class MenuBarRightClickControllerTests: XCTestCase {
             )
         )
 
-        let returnedEvent = MenuBarRightClickController().handleRightClick(event)
+        let returnedEvent = EqualiserAppDelegate.handleRightClick(event)
 
         XCTAssertNil(returnedEvent)
         XCTAssertEqual(target.clickCount, 1)
@@ -59,7 +59,7 @@ final class MenuBarRightClickControllerTests: XCTestCase {
             )
         )
 
-        let returnedEvent = MenuBarRightClickController().handleRightClick(event)
+        let returnedEvent = EqualiserAppDelegate.handleRightClick(event)
 
         XCTAssertTrue(returnedEvent === event)
     }

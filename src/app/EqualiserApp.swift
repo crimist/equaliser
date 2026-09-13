@@ -5,18 +5,34 @@ import SwiftUI
 @MainActor
 final class EqualiserAppDelegate: NSObject, NSApplicationDelegate {
     private weak var store: EqualiserStore?
-    private let menuBarRightClickController = MenuBarRightClickController()
+    private var rightClickMonitor: Any?
 
     func setStore(_ store: EqualiserStore) {
         self.store = store
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        menuBarRightClickController.start()
+        rightClickMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .rightMouseDown, handler: Self.handleRightClick
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        menuBarRightClickController.stop()
+        if let rightClickMonitor {
+            NSEvent.removeMonitor(rightClickMonitor)
+        }
+    }
+
+    static func handleRightClick(_ event: NSEvent) -> NSEvent? {
+        var view = event.window?.contentView?.hitTest(event.locationInWindow)
+        while let currentView = view {
+            if let button = currentView as? NSStatusBarButton {
+                button.performClick(nil)
+                return nil
+            }
+            view = currentView.superview
+        }
+        return event
     }
 }
 
