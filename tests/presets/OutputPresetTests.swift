@@ -163,6 +163,99 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
+    func testDeviceNamesPersistWhileOutputsAreUnavailable() throws {
+        try withPresets { manager, storage, directory in
+            manager.rememberOutputDevices([
+                AudioDevice(id: 1, uid: "speakers", name: "MacBook Speakers", transportType: 0),
+                AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
+            ])
+            manager.rememberOutputDevices([
+                AudioDevice(id: 3, uid: "headphones", name: "External Headphones", transportType: 0),
+            ])
+            let restored = PresetManager(storage: storage, directory: directory)
+            XCTAssertEqual(restored.outputDeviceNames["speakers"], "MacBook Speakers")
+            XCTAssertEqual(restored.outputDeviceNames["headphones"], "External Headphones")
+            XCTAssertNil(restored.outputDeviceNames[DRIVER_DEVICE_UID])
+        }
+    }
+
+    func testDevicePanelIncludesInactiveAndUnavailableOutputs() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage, output: "headphones")
+            store.deviceManager.outputDevices = [
+                AudioDevice(id: 1, uid: "speakers", name: "MacBook Speakers", transportType: 0),
+                AudioDevice(id: 2, uid: "headphones", name: "External Headphones", transportType: 0),
+            ]
+            let viewModel = DevicePresetsViewModel(store: store)
+            XCTAssertTrue(try XCTUnwrap(viewModel.devices.first { $0.uid == "speakers" }).isAvailable)
+            XCTAssertFalse(try XCTUnwrap(viewModel.devices.first { $0.uid == "speakers" }).isSelected)
+
+            store.deviceManager.outputDevices = [
+                AudioDevice(id: 2, uid: "headphones", name: "External Headphones", transportType: 0),
+            ]
+            let speakers = try XCTUnwrap(viewModel.devices.first { $0.uid == "speakers" })
+            XCTAssertEqual(speakers.name, "MacBook Speakers")
+            XCTAssertFalse(speakers.isAvailable)
+            XCTAssertTrue(try XCTUnwrap(viewModel.devices.first { $0.uid == "headphones" }).isSelected)
+        }
+    }
+
+    func testEditingInactiveOutputDoesNotChangeCurrentEQ() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage, output: "headphones")
+            store.loadPreset(named: "Bass Boost")
+            store.updateBandGain(index: 0, gain: 3)
+            let viewModel = DevicePresetsViewModel(store: store)
+
+            viewModel.updatePreset(named: "Flat", for: "speakers")
+            XCTAssertEqual(viewModel.presetName(for: "speakers"), "Flat")
+            XCTAssertEqual(store.selectedOutputDeviceID, "headphones")
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
+            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 3)
+            XCTAssertTrue(manager.isModified)
+
+            store.selectedOutputDeviceID = "speakers"
+            XCTAssertEqual(manager.selectedPresetName, "Flat")
+            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 0)
+        }
+    }
+
+    func testEditingCurrentOutputAppliesPresetAndClearingKeepsEQ() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage, output: "headphones")
+            let viewModel = DevicePresetsViewModel(store: store)
+            viewModel.updatePreset(named: "Bass Boost", for: "headphones")
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
+            store.updateBandGain(index: 0, gain: 3)
+
+            viewModel.updatePreset(named: nil, for: "headphones")
+            XCTAssertNil(viewModel.presetName(for: "headphones"))
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
+            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 3)
+            XCTAssertTrue(manager.isModified)
+        }
+    }
+
+    func testDevicePanelDistinguishesMatchingNamesAndIncludesLegacyAssignments() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage)
+            store.deviceManager.outputDevices = [
+                AudioDevice(id: 1, uid: "usb-dac-1", name: "USB DAC", transportType: 0),
+                AudioDevice(id: 2, uid: "usb-dac-2", name: "USB DAC", transportType: 0),
+            ]
+            manager.updateOutputPreset(named: "Flat", for: "legacy-output")
+            let viewModel = DevicePresetsViewModel(store: store)
+            let dacs = viewModel.devices.filter { $0.name == "USB DAC" }
+            XCTAssertEqual(dacs.map(\.uid), ["usb-dac-1", "usb-dac-2"])
+            XCTAssertTrue(viewModel.devices.contains { $0.uid == "legacy-output" })
+
+            viewModel.updatePreset(named: "Bass Boost", for: "usb-dac-1")
+            viewModel.updatePreset(named: "Flat", for: "usb-dac-2")
+            XCTAssertEqual(viewModel.presetName(for: "usb-dac-1"), "Bass Boost")
+            XCTAssertEqual(viewModel.presetName(for: "usb-dac-2"), "Flat")
+        }
+    }
+
     private func makeStore(manager: PresetManager, storage: UserDefaults, output: String? = nil) -> EqualiserStore {
         let persistence = AppStatePersistence(storage: storage)
         var snapshot = AppStateSnapshot.default

@@ -71,6 +71,10 @@ final class PresetManager: ObservableObject {
         didSet { storage.set(outputPresets, forKey: Keys.outputPresets) }
     }
 
+    @Published private(set) var outputDeviceNames: [String: String] {
+        didSet { storage.set(outputDeviceNames, forKey: Keys.outputDeviceNames) }
+    }
+
     // MARK: - Private Properties
 
     private let fileManager = FileManager.default
@@ -83,6 +87,7 @@ final class PresetManager: ObservableObject {
     private enum Keys {
         static let selectedPreset = "equalizer.selectedPreset"
         static let outputPresets = "equaliser.outputPresets"
+        static let outputDeviceNames = "equaliser.outputDeviceNames"
     }
 
     /// The directory where presets are stored.
@@ -104,6 +109,7 @@ final class PresetManager: ObservableObject {
         self.storage = storage
         self.directory = directory
         self.outputPresets = storage.dictionary(forKey: Keys.outputPresets) as? [String: String] ?? [:]
+        self.outputDeviceNames = storage.dictionary(forKey: Keys.outputDeviceNames) as? [String: String] ?? [:]
         self.encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -305,6 +311,15 @@ final class PresetManager: ObservableObject {
     func preset(forOutputDevice uid: String) -> Preset? {
         guard let name = outputPresets[uid] else { return nil }
         return preset(named: name)
+    }
+
+    /// Keep names so assignments remain editable when an output disappears from CoreAudio.
+    func rememberOutputDevices(_ devices: [AudioDevice]) {
+        var names = outputDeviceNames
+        for device in devices where device.isValidForSelection {
+            names[device.uid] = device.name
+        }
+        if names != outputDeviceNames { outputDeviceNames = names }
     }
 
     /// Replaces or clears an output's assignment without changing the active EQ.

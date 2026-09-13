@@ -55,23 +55,6 @@ final class PresetViewModel {
         store.presetManager.selectedPresetName
     }
 
-    /// The selected output, identified by UID even when device names collide.
-    var outputDevice: AudioDevice? {
-        store.outputDevices.first { $0.uid == store.selectedOutputDeviceID && $0.isValidForSelection }
-    }
-
-    var outputPresetName: String? {
-        guard let device = outputDevice else { return nil }
-        return store.presetManager.preset(forOutputDevice: device.uid)?.metadata.name
-    }
-
-    /// Assigning a preset takes effect immediately; clearing it keeps the current EQ.
-    func updateOutputPreset(named name: String?) {
-        guard let device = outputDevice else { return }
-        store.presetManager.updateOutputPreset(named: name, for: device.uid)
-        if let name { store.loadPreset(named: name) }
-    }
-    
     // MARK: - Bandwidth Display Mode
     
     /// User preference for displaying bandwidth (octaves or Q factor).

@@ -76,9 +76,11 @@ Equaliser handles all audio routing automatically — no configuration needed.
 
 ### Automatic Presets
 
-In the preset menu, open **Automatic Preset for [output name]** and choose a preset. This loads its saved settings immediately and whenever you switch back to that output, replacing any unsaved EQ edits. Outputs without an assignment keep the current EQ.
+Click the speaker button beside the preset picker to open **Device Presets**. Each connected or previously seen output has its own preset selection, so you can configure speakers while listening through headphones. Outputs must have been detected by Equaliser at least once to appear by name.
 
-Choose **None — Keep Current Preset** to remove an assignment. Assignments use device UIDs, survive preset renames, and stay on this Mac when presets are exported.
+Changing the current output’s assignment loads the saved preset immediately. Other assignments take effect when you switch outputs, replacing any unsaved EQ edits. Outputs without an assignment keep the current EQ.
+
+Choose **None — Keep Current** to remove an assignment. Assignments use device UIDs, survive preset renames, and stay on this Mac when presets are exported.
 
 ## Uninstall
 

@@ -312,8 +312,6 @@ final class EqualiserStore: ObservableObject {
             restoreAutomaticOutputDevice(currentSelected: nil)
         }
         
-        // Apply the restored output's assignment before audio starts, then follow all
-        // selection paths (manual, system default, disconnect fallback and reconnect).
         routingCoordinator.onOutputDeviceChanged = { [weak self] uid in
             self?.loadOutputPreset(for: uid)
         }
@@ -374,6 +372,12 @@ final class EqualiserStore: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        deviceManager.$outputDevices
+            .sink { [weak self] devices in
+                self?.presetManager.rememberOutputDevices(devices)
             }
             .store(in: &cancellables)
 
