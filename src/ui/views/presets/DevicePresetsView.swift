@@ -7,8 +7,10 @@ struct DevicePresetsButton: View {
         Button {
             isPresented.toggle()
         } label: {
-            Label("Device Presets", systemImage: "speaker.wave.2")
+            Label("Device Presets", systemImage: "list.bullet.rectangle")
                 .labelStyle(.iconOnly)
+                .font(.system(size: 12, weight: .bold))
+                .frame(width: 24, height: 16)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
@@ -30,9 +32,6 @@ struct DevicePresetsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Device Presets")
                 .font(.headline)
-            Text("Choose the preset to load when each output is selected.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
 
             if viewModel.devices.isEmpty {
                 Text("Connect an output device to assign a preset.")
@@ -58,16 +57,25 @@ struct DevicePresetsView: View {
                                 .help(device.uid)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                                Picker("Preset for \(device.name)", selection: Binding(
-                                    get: { viewModel.presetName(for: device.uid) },
-                                    set: { viewModel.updatePreset(named: $0, for: device.uid) }
-                                )) {
-                                    Text("None — Keep Current").tag(String?.none)
-                                    ForEach(viewModel.presets) { preset in
-                                        Text(preset.metadata.name).tag(Optional(preset.metadata.name))
+                                Menu {
+                                    Picker("Preset for \(device.name)", selection: Binding(
+                                        get: { viewModel.presetName(for: device.uid) },
+                                        set: { viewModel.updatePreset(named: $0, for: device.uid) }
+                                    )) {
+                                        Text("None — Keep Current").tag(String?.none)
+                                        ForEach(viewModel.presets) { preset in
+                                            Text(preset.metadata.name).tag(Optional(preset.metadata.name))
+                                        }
                                     }
+                                    .pickerStyle(.inline)
+                                    .labelsHidden()
+                                } label: {
+                                    Text(viewModel.presetName(for: device.uid) ?? "None — Keep Current")
+                                        .lineLimit(1)
+                                        .frame(width: 176, alignment: .leading)
                                 }
-                                .labelsHidden()
+                                .menuStyle(.borderedButton)
+                                .accessibilityLabel("Preset for \(device.name)")
                                 .frame(width: 200)
                             }
                             .frame(minHeight: 44)
@@ -76,10 +84,6 @@ struct DevicePresetsView: View {
                 }
                 .frame(height: min(CGFloat(viewModel.devices.count) * 56, 320))
             }
-
-            Text("Changing the current output’s assignment loads it now. Other assignments take effect when you switch outputs.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(20)
         .frame(width: 480)
