@@ -15,7 +15,7 @@ struct DevicePresetsButton: View {
         .buttonStyle(.bordered)
         .controlSize(.small)
         .help("Device presets")
-        .popover(isPresented: $isPresented) {
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             DevicePresetsView()
         }
     }
@@ -29,63 +29,50 @@ struct DevicePresetsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Device Presets")
                 .font(.headline)
 
+            Divider()
+
             if viewModel.devices.isEmpty {
-                Text("Connect an output device to assign a preset.")
+                Text("No output devices")
                     .foregroundStyle(.secondary)
             } else {
                 ScrollView {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 0) {
                         ForEach(viewModel.devices) { device in
-                            HStack(spacing: 16) {
-                                VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 12) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: device.isAvailable ? "speaker.wave.2" : "speaker.slash")
+                                        .foregroundStyle(device.isSelected ? Color.accentColor : .secondary)
+                                        .frame(width: 16)
                                     Text(device.name)
-                                        .lineLimit(2)
-                                    if !device.isAvailable {
-                                        Text("Unavailable")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    } else if device.isSelected {
-                                        Text("Current output")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                        .foregroundStyle(device.isAvailable ? .primary : .secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
                                 }
-                                .help(device.uid)
+                                .help(device.name + (device.isSelected ? " (current output)" : device.isAvailable ? "" : " (unavailable)") + "\n" + device.uid)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                                Menu {
-                                    Picker("Preset for \(device.name)", selection: Binding(
+                                DevicePresetPicker(
+                                    names: viewModel.presets.map { $0.metadata.name },
+                                    selection: Binding(
                                         get: { viewModel.presetName(for: device.uid) },
                                         set: { viewModel.updatePreset(named: $0, for: device.uid) }
-                                    )) {
-                                        Text("None — Keep Current").tag(String?.none)
-                                        ForEach(viewModel.presets) { preset in
-                                            Text(preset.metadata.name).tag(Optional(preset.metadata.name))
-                                        }
-                                    }
-                                    .pickerStyle(.inline)
-                                    .labelsHidden()
-                                } label: {
-                                    Text(viewModel.presetName(for: device.uid) ?? "None — Keep Current")
-                                        .lineLimit(1)
-                                        .frame(width: 176, alignment: .leading)
-                                }
-                                .menuStyle(.borderedButton)
-                                .accessibilityLabel("Preset for \(device.name)")
-                                .frame(width: 200)
+                                    ),
+                                    label: "Preset for \(device.name)"
+                                )
+                                .frame(width: 160, height: 24)
                             }
-                            .frame(minHeight: 44)
+                            .frame(height: 36)
                         }
                     }
                 }
-                .frame(height: min(CGFloat(viewModel.devices.count) * 56, 320))
+                .frame(height: min(CGFloat(viewModel.devices.count) * 36, 252))
             }
         }
-        .padding(20)
-        .frame(width: 480)
+        .padding(14)
+        .frame(width: 400)
     }
 }

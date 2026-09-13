@@ -54,7 +54,7 @@ final class PresetViewModel {
     var selectedPresetName: String? {
         store.presetManager.selectedPresetName
     }
-
+    
     // MARK: - Bandwidth Display Mode
     
     /// User preference for displaying bandwidth (octaves or Q factor).

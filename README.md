@@ -80,7 +80,7 @@ Click the list button beside the preset picker to open **Device Presets**. Each 
 
 Changing the current output’s assignment loads the saved preset immediately. Other assignments take effect when you switch outputs, replacing any unsaved EQ edits. Outputs without an assignment keep the current EQ.
 
-Choose **None — Keep Current** to remove an assignment. Assignments use device UIDs, survive preset renames, and stay on this Mac when presets are exported.
+Choose **None** to remove an assignment. Assignments use device UIDs, survive preset renames, and stay on this Mac when presets are exported.
 
 ## Uninstall
 

@@ -84,7 +84,6 @@ struct MenuBarContentView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             CompactPresetPicker()
-            DevicePresetsButton()
         }
     }
 
