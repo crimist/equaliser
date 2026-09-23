@@ -33,7 +33,7 @@ final class DriverNameManager {
     // MARK: - Dependencies
     
     private let driverAccess: DriverAccessing
-    private let systemDefaultObserver: SystemDefaultObserver
+    private let systemDefaultObserver: SystemDefaultObserving
     private let deviceProvider: DeviceProviding
 
     private let logger = Logger(
@@ -45,7 +45,7 @@ final class DriverNameManager {
 
     init(
         driverAccess: DriverAccessing,
-        systemDefaultObserver: SystemDefaultObserver,
+        systemDefaultObserver: SystemDefaultObserving,
         deviceProvider: DeviceProviding
     ) {
         self.driverAccess = driverAccess

@@ -80,6 +80,10 @@ final class DeviceManager: ObservableObject, DeviceProviding {
 
     func refreshDevices() {
         enumerator.refreshDevices()
+        // Routing may resolve a device immediately after this call. The Combine
+        // subscriptions above deliver later on the main queue.
+        inputDevices = enumerator.inputDevices
+        outputDevices = enumerator.outputDevices
     }
 
     /// Enumerates input devices only.

@@ -70,8 +70,11 @@ final class AudioRoutingCoordinator: ObservableObject {
         /// Allows the audio thread's per-callback gain ramping to fade output
         /// to silence (~10ms per callback) before the HAL unit is stopped.
         static let fadeOutDuration: TimeInterval = 0.05
+        static let wakeSettlingDelay: TimeInterval = 0.3
+        static let wakeRetryDelay: TimeInterval = 0.5
+        static let wakeRetryCount = 8
     }
-    private let systemDefaultObserver: SystemDefaultObserver
+    private let systemDefaultObserver: SystemDefaultObserving
     private let sampleRateService: SampleRateObserving
     let driverAccess: DriverAccessing
     private let driverNameManager: DriverNameManager
@@ -92,6 +95,12 @@ final class AudioRoutingCoordinator: ObservableObject {
     let pipelineManager: PipelineManager
     private var observedOutputDeviceID: AudioDeviceID?
     private var isReconfiguring = false
+    private var isSleeping = false
+    private var resumeAfterWake = false
+    private var routeGeneration: UInt64 = 0
+    private var wakeGeneration: UInt64 = 0
+    private var isRecoveringFromWake = false
+    private var resumeAfterStop = false
     private var cancellables = Set<AnyCancellable>()
     let eqStager: EQCoefficientStager
 
@@ -111,7 +120,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         meterStore: MeterStore,
         volumeService: VolumeControlling,
         permissionService: PermissionRequesting,
-        systemDefaultObserver: SystemDefaultObserver,
+        systemDefaultObserver: SystemDefaultObserving,
         sampleRateService: SampleRateObserving,
         driverAccess: DriverAccessing? = nil
     ) {
@@ -174,10 +183,87 @@ final class AudioRoutingCoordinator: ObservableObject {
     
     // MARK: - Public Methods
 
+    /// Discards Core Audio units before the devices disappear during sleep.
+    func handleWillSleep() {
+        guard !isSleeping else { return }
+        resumeAfterWake = routingStatus.isActive || routingStatus == .starting || isReconfiguring
+            || resumeAfterStop || isRecoveringFromWake
+            || (!manualModeEnabled && systemDefaultObserver.getCurrentSystemDefaultOutputUID() == DRIVER_DEVICE_UID)
+        isSleeping = true
+        isRecoveringFromWake = false
+        wakeGeneration &+= 1
+        routeGeneration &+= 1
+        isReconfiguring = false
+        isStopping = false
+        resumeAfterStop = false
+        stopPipeline()
+        if !manualModeEnabled && resumeAfterWake {
+            restoreSystemOutput(physicalOnly: true)
+        }
+        routingStatus = .idle
+        logger.info("Routing suspended for sleep; resume=\(self.resumeAfterWake)")
+    }
+
+    /// Rebuilds both the output unit and capture after Core Audio is ready again.
+    func handleDidWake() {
+        guard isSleeping else { return }
+        isSleeping = false
+        guard resumeAfterWake else { return }
+        resumeAfterWake = false
+        isRecoveringFromWake = true
+        wakeGeneration &+= 1
+        scheduleWakeRecovery(attempt: 0, generation: wakeGeneration, delay: Constants.wakeSettlingDelay)
+    }
+
+    private func scheduleWakeRecovery(attempt: Int, generation: UInt64, delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.wakeGeneration == generation, !self.isSleeping else { return }
+            self.recoverAfterWake(attempt: attempt, generation: generation)
+        }
+    }
+
+    private func recoverAfterWake(attempt: Int, generation: UInt64) {
+        if routingStatus.isActive && !isStopping && !isReconfiguring {
+            isRecoveringFromWake = false
+            logger.info("Routing restored after wake")
+            return
+        }
+
+        if attempt >= Constants.wakeRetryCount {
+            isRecoveringFromWake = false
+            routeGeneration &+= 1
+            isReconfiguring = false
+            isStopping = false
+            resumeAfterStop = false
+            stopPipeline()
+            if !manualModeEnabled { restoreSystemOutput(physicalOnly: true) }
+            routingStatus = .error("Could not restore audio after wake")
+            logger.error("Wake routing recovery failed")
+            return
+        }
+
+        if isStopping || isReconfiguring {
+            scheduleWakeRecovery(attempt: attempt + 1, generation: generation, delay: Constants.wakeRetryDelay)
+            return
+        }
+
+        deviceProvider.refreshDevices()
+        if !manualModeEnabled && (!driverAccess.isReady || !driverAccess.isDriverVisible()) {
+            scheduleWakeRecovery(attempt: attempt + 1, generation: generation, delay: Constants.wakeRetryDelay)
+            return
+        }
+
+        logger.info("Rebuilding routing after wake (attempt \(attempt + 1))")
+        reconfigureRouting()
+        scheduleWakeRecovery(attempt: attempt + 1, generation: generation, delay: Constants.wakeRetryDelay)
+    }
+
     /// Reconfigures the audio routing pipeline.
     /// In automatic mode: derives devices from macOS default output.
     /// In manual mode: uses user-selected devices.
     func reconfigureRouting() {
+        guard !isSleeping else { return }
+        guard !isStopping else { return }
         let modeStr = manualModeEnabled ? "manual" : "automatic"
         logger.debug("reconfigureRouting(mode=\(modeStr))")
 
@@ -187,14 +273,18 @@ final class AudioRoutingCoordinator: ObservableObject {
             return
         }
 
+        resumeAfterStop = false
         isReconfiguring = true
+        routeGeneration &+= 1
+        let generation = routeGeneration
 
         // If pipeline is running, fade out before stopping to prevent audio pop.
         // The fade ramps gains to zero over ~10ms; we wait 50ms for it to complete.
         if pipelineManager.renderPipeline != nil {
             pipelineManager.prepareForStop()
             DispatchQueue.main.asyncAfter(deadline: .now() + Constants.fadeOutDuration) { [weak self] in
-                self?.continueReconfigureRouting()
+                guard let self, self.routeGeneration == generation, !self.isSleeping else { return }
+                self.continueReconfigureRouting()
             }
         } else {
             continueReconfigureRouting()
@@ -204,6 +294,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// Continues routing configuration after the fade-out delay.
     /// Separated from reconfigureRouting() to allow the fade-out to complete.
     private func continueReconfigureRouting() {
+        let generation = routeGeneration
         // Step 1: Verify permissions (HAL input requires microphone permission)
         guard validatePermissions() else {
             isReconfiguring = false
@@ -243,8 +334,10 @@ final class AudioRoutingCoordinator: ObservableObject {
             _ = updateDriverName()
 
             // Set driver as macOS default IMMEDIATELY (before pipeline starts)
+            var driverDefaultSet = false
             systemDefaultObserver.setDriverAsDefault(
                 onSuccess: { [weak self] in
+                    driverDefaultSet = true
                     self?.logger.info("Automatic mode: set driver as system default output")
                 },
                 onFailure: { [weak self] in
@@ -253,6 +346,10 @@ final class AudioRoutingCoordinator: ObservableObject {
                     self?.driverAccess.restoreToBuiltInSpeakers()
                 }
             )
+            guard driverDefaultSet else {
+                isReconfiguring = false
+                return
+            }
         }
 
         // Sync driver sample rate to match output device (automatic mode only)
@@ -288,8 +385,9 @@ final class AudioRoutingCoordinator: ObservableObject {
             // Delay to allow CoreAudio to propagate sample rate change
             logger.debug("Waiting for driver sample rate propagation before HAL input configuration")
             DispatchQueue.main.asyncAfter(deadline: .now() + Constants.sampleRatePropagationDelay) { [weak self] in
-                self?.isReconfiguring = false
-                self?.continueRoutingConfiguration(
+                guard let self, self.routeGeneration == generation, !self.isSleeping else { return }
+                self.isReconfiguring = false
+                self.continueRoutingConfiguration(
                     inputDeviceID: devices.inputDeviceID,
                     outputDeviceID: devices.outputDeviceID,
                     outputDevice: devices.outputDevice,
@@ -543,9 +641,11 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// Called when HAL input capture is needed and microphone permission hasn't been granted.
     private func requestPermissionAndRetryRouting() {
         routingStatus = .starting  // Show loading state while requesting permission
+        let generation = routeGeneration
 
         Task { @MainActor in
             let granted = await permissionService.requestMicPermission()
+            guard generation == routeGeneration, !isSleeping else { return }
 
             if granted {
                 logger.info("Microphone permission granted")
@@ -566,22 +666,37 @@ final class AudioRoutingCoordinator: ObservableObject {
 
     /// Stops the current audio routing and restores system defaults (automatic mode only).
     /// Guarded against re-entrant calls — if a stop is already in progress, this is a no-op.
-    func stopRouting() {
+    func stopRouting(cancelWakeRecovery: Bool = true) {
+        guard !isSleeping else { return }
         // Prevent double-stop when multiple device-removed notifications fire
         // (e.g. both input and output devices disconnect simultaneously, or
         // CoreAudio sends duplicate property change callbacks).
         guard !isStopping else {
+            if cancelWakeRecovery {
+                wakeGeneration &+= 1
+                isRecoveringFromWake = false
+                resumeAfterStop = false
+            }
             logger.debug("stopRouting ignored — already stopping")
             return
         }
         isStopping = true
+        isReconfiguring = false
+        resumeAfterStop = !cancelWakeRecovery
+        routeGeneration &+= 1
+        let generation = routeGeneration
+        if cancelWakeRecovery {
+            wakeGeneration &+= 1
+            isRecoveringFromWake = false
+        }
         logger.info("stopRouting called, manualMode=\(self.manualModeEnabled)")
 
         // Fade out before stopping to prevent audio pop
         if pipelineManager.renderPipeline != nil {
             pipelineManager.prepareForStop()
             DispatchQueue.main.asyncAfter(deadline: .now() + Constants.fadeOutDuration) { [weak self] in
-                self?.continueStopRouting()
+                guard let self, self.routeGeneration == generation, !self.isSleeping else { return }
+                self.continueStopRouting()
             }
         } else {
             continueStopRouting()
@@ -595,27 +710,7 @@ final class AudioRoutingCoordinator: ObservableObject {
 
         // In automatic mode, restore macOS default
         if !routingMode.isManual {
-            // Restore to selected output device
-            if let outputUID = selectedOutputDeviceID,
-               outputUID != DRIVER_DEVICE_UID {
-
-                let restored = systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
-                if !restored {
-                    logger.warning("Failed to restore output device, using fallback")
-                    if let fallback = findFallbackOutputDevice() {
-                        systemDefaultObserver.restoreSystemDefaultOutput(to: fallback.uid)
-                    } else {
-                        driverAccess.restoreToBuiltInSpeakers()
-                    }
-                }
-            } else {
-                // No valid output, use fallback
-                if let fallback = findFallbackOutputDevice() {
-                    systemDefaultObserver.restoreSystemDefaultOutput(to: fallback.uid)
-                } else {
-                    driverAccess.restoreToBuiltInSpeakers()
-                }
-            }
+            restoreSystemOutput(physicalOnly: false)
 
             // Rename driver back to "Equaliser"
             _ = updateDriverName()
@@ -628,6 +723,42 @@ final class AudioRoutingCoordinator: ObservableObject {
         routingStatus = .idle
         isStopping = false
         logger.info("Routing stopped")
+        if resumeAfterStop {
+            if isRecoveringFromWake {
+                resumeAfterStop = false
+            } else {
+                let generation = routeGeneration
+                DispatchQueue.main.asyncAfter(deadline: .now() + Constants.wakeSettlingDelay) { [weak self] in
+                    guard let self, self.routeGeneration == generation,
+                          self.resumeAfterStop, !self.isSleeping else { return }
+                    self.resumeAfterStop = false
+                    if self.routingStatus == .idle {
+                        self.reconfigureRouting()
+                    }
+                }
+            }
+        }
+    }
+
+    private func restoreSystemOutput(physicalOnly: Bool) {
+        if physicalOnly { deviceProvider.refreshDevices() }
+        if let outputUID = selectedOutputDeviceID,
+           outputUID != DRIVER_DEVICE_UID,
+           let output = deviceProvider.device(forUID: outputUID),
+           (!physicalOnly || output.isRealDevice),
+           systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID) {
+            return
+        }
+
+        let fallback = physicalOnly
+            ? deviceProvider.outputDevices.first(where: \.isRealDevice)
+            : findFallbackOutputDevice()
+        if let fallback,
+           systemDefaultObserver.restoreSystemDefaultOutput(to: fallback.uid) {
+            return
+        }
+
+        _ = driverAccess.restoreToBuiltInSpeakers()
     }
     
     /// Called after driver installation completes successfully.
@@ -776,9 +907,12 @@ final class AudioRoutingCoordinator: ObservableObject {
         }
 
         logger.warning("Driver not immediately visible, waiting for reconnection...")
+        let generation = routeGeneration
 
         Task { @MainActor in
-            if await driverAccess.findDriverDeviceWithRetry(initialDelayMs: 100, maxAttempts: 6) != nil {
+            let deviceID = await driverAccess.findDriverDeviceWithRetry(initialDelayMs: 100, maxAttempts: 6)
+            guard generation == routeGeneration, !isSleeping else { return }
+            if deviceID != nil {
                 logger.info("Driver became visible, retrying routing configuration")
                 onVisible()
             } else {
@@ -791,6 +925,11 @@ final class AudioRoutingCoordinator: ObservableObject {
 
     private func stopPipeline() {
         pipelineManager.stopPipeline()
+
+        if let outputDeviceID = observedOutputDeviceID {
+            sampleRateService.stopObservingSampleRateChanges(on: outputDeviceID)
+            observedOutputDeviceID = nil
+        }
 
         // Stop device alive monitors
         stopDeviceAliveMonitors()
@@ -805,13 +944,15 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// Uses `kAudioDevicePropertyDeviceIsAlive` for immediate, direct notification
     /// rather than waiting for the full device list to refresh.
     private func startDeviceAliveMonitors(inputDeviceID: AudioDeviceID, outputDeviceID: AudioDeviceID) {
+        let generation = routeGeneration
         // Monitor input device
         let inputMonitor = DeviceAliveMonitor()
         inputMonitor.startMonitoring(deviceID: inputDeviceID) { [weak self] in
             guard let self = self else { return }
+            guard self.routeGeneration == generation, !self.isSleeping else { return }
             self.logger.warning("Input device removed during active routing")
             self.routingStatus = .error("Input device removed")
-            self.stopRouting()
+            self.stopRouting(cancelWakeRecovery: false)
         }
         inputDeviceAliveMonitor = inputMonitor
 
@@ -819,9 +960,10 @@ final class AudioRoutingCoordinator: ObservableObject {
         let outputMonitor = DeviceAliveMonitor()
         outputMonitor.startMonitoring(deviceID: outputDeviceID) { [weak self] in
             guard let self = self else { return }
+            guard self.routeGeneration == generation, !self.isSleeping else { return }
             self.logger.warning("Output device removed during active routing")
             self.routingStatus = .error("Output device removed")
-            self.stopRouting()
+            self.stopRouting(cancelWakeRecovery: false)
         }
         outputDeviceAliveMonitor = outputMonitor
 
@@ -903,10 +1045,12 @@ final class AudioRoutingCoordinator: ObservableObject {
         }
         
         observedOutputDeviceID = outputDeviceID
+        let generation = routeGeneration
         
         // Start observing rate changes
         sampleRateService.observeSampleRateChanges(on: outputDeviceID) { [weak self] newRate in
             guard let self = self else { return }
+            guard self.routeGeneration == generation, !self.isSleeping else { return }
             
             // Only sync if routing is active and in automatic mode
             guard case .active = self.routingStatus, !self.manualModeEnabled else { return }
@@ -933,13 +1077,16 @@ final class AudioRoutingCoordinator: ObservableObject {
                 
                 // Reconfigure pipeline after rate change settles
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.reconfigureRouting()
+                    guard let self, self.routeGeneration == generation, !self.isSleeping else { return }
+                    self.reconfigureRouting()
                 }
             }
         }
     }
     
     private func handleSystemDefaultChanged(_ device: AudioDevice) {
+        guard !isSleeping, !isRecoveringFromWake else { return }
+        guard routingStatus.isActive || routingStatus == .starting || isReconfiguring else { return }
         // In manual mode, ignore macOS changes
         guard routingMode.handlesSystemDefaultChanges else {
             logger.debug("handleSystemDefaultChanged: Manual mode - ignoring")
@@ -983,6 +1130,8 @@ final class AudioRoutingCoordinator: ObservableObject {
     
     /// Called when the selected output device is missing from available devices.
     private func handleSelectedOutputMissing(_ uid: String) {
+        guard !isSleeping, !isRecoveringFromWake else { return }
+        guard !isStopping, routingStatus.isActive || routingStatus == .starting || isReconfiguring else { return }
         // Only handle in automatic mode (driver is used)
         guard routingMode.handlesBuiltInDeviceChanges else {
             logger.debug("Manual mode: ignoring missing device")
@@ -1005,6 +1154,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     
     /// Called when built-in devices are removed (Apple Silicon: headphones unplugged).
     private func handleBuiltInDevicesRemoved() {
+        guard !isSleeping, !isRecoveringFromWake else { return }
         guard routingMode.handlesBuiltInDeviceChanges else { return }
         
         // Clear missing tracking so we can detect if current device is missing
@@ -1013,6 +1163,8 @@ final class AudioRoutingCoordinator: ObservableObject {
     
     /// Called when a single built-in device is added (Apple Silicon: headphones plugged in).
     private func handleBuiltInDeviceAdded(_ device: AudioDevice) {
+        guard !isSleeping, !isRecoveringFromWake else { return }
+        guard routingStatus.isActive, !isStopping else { return }
         guard routingMode.handlesBuiltInDeviceChanges else {
             logger.debug("handleBuiltInDeviceAdded: Manual mode - ignoring")
             return

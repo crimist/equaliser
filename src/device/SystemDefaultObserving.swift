@@ -61,3 +61,13 @@ protocol SystemDefaultObserving: AnyObject {
     /// Clears the app-setting-default flag after a delay.
     func clearAppSettingFlagAfterDelay()
 }
+
+extension SystemDefaultObserving {
+    func setDriverAsDefault(shortTimeout: Bool) {
+        setDriverAsDefault(shortTimeout: shortTimeout, onSuccess: nil, onFailure: nil)
+    }
+
+    func setDriverAsDefault(onSuccess: (() -> Void)?, onFailure: (() -> Void)?) {
+        setDriverAsDefault(shortTimeout: false, onSuccess: onSuccess, onFailure: onFailure)
+    }
+}

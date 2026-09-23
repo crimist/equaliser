@@ -404,6 +404,18 @@ final class EqualiserStore: ObservableObject {
             name: NSApplication.willTerminateNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleWillSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
         
         // After all state is restored, check if settings differ from selected preset
         if presetManager.selectedPresetName != nil {
@@ -421,6 +433,7 @@ final class EqualiserStore: ObservableObject {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
     
     // MARK: - App Lifecycle
@@ -429,6 +442,14 @@ final class EqualiserStore: ObservableObject {
         logger.info("App terminating, stopping routing")
         routingCoordinator.stopRouting()
         // Driver visibility is now automatic
+    }
+
+    @objc private func handleWillSleep() {
+        routingCoordinator.handleWillSleep()
+    }
+
+    @objc private func handleDidWake() {
+        routingCoordinator.handleDidWake()
     }
     
     // MARK: - Routing Delegation
