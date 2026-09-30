@@ -256,6 +256,40 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
+    func testSerialLessUSBDeviceSharesOneAssignmentAcrossPorts() throws {
+        try withPresets { _, storage, directory in
+            // Assignments saved per port before port-independent keys existed.
+            let port1 = "AppleUSBAudioEngine:Acme:USB DAC:1100000:1"
+            let port2 = "AppleUSBAudioEngine:Acme:USB DAC:1140000:1"
+            let port3 = "AppleUSBAudioEngine:Acme:USB DAC:2140000:1"
+            storage.set([port1: "Bass Boost", port3: "Bass Boost"], forKey: "equaliser.outputPresets")
+            storage.set(
+                [port1: "USB DAC", port2: "USB DAC", port3: "USB DAC", "speakers": "Speakers"],
+                forKey: "equaliser.outputDeviceNames"
+            )
+            let manager = PresetManager(storage: storage, directory: directory)
+            let store = makeStore(manager: manager, storage: storage)
+            store.deviceManager.outputDevices = [
+                AudioDevice(id: 1, uid: port2, name: "USB DAC", transportType: 0),
+            ]
+
+            let viewModel = DevicePresetsViewModel(store: store)
+            let dacs = viewModel.devices.filter { $0.name == "USB DAC" }
+            XCTAssertEqual(dacs.count, 1)
+            XCTAssertTrue(try XCTUnwrap(dacs.first).isAvailable)
+
+            // The port that never had an assignment now uses the device's preset.
+            store.selectedOutputDeviceID = port2
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
+            XCTAssertTrue(try XCTUnwrap(viewModel.devices.first { $0.name == "USB DAC" }).isSelected)
+
+            // Editing from any port updates the single shared entry.
+            viewModel.updatePreset(named: "Flat", for: try XCTUnwrap(dacs.first).uid)
+            XCTAssertEqual(manager.selectedPresetName, "Flat")
+            XCTAssertEqual(manager.preset(forOutputDevice: port1)?.metadata.name, "Flat")
+        }
+    }
+
     private func makeStore(manager: PresetManager, storage: UserDefaults, output: String? = nil) -> EqualiserStore {
         let persistence = AppStatePersistence(storage: storage)
         var snapshot = AppStateSnapshot.default
