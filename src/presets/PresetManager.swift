@@ -66,7 +66,7 @@ final class PresetManager: ObservableObject {
     /// Whether the current EQ settings have been modified from the loaded preset.
     @Published var isModified: Bool = false
 
-    /// Local output-device UID to preset-name assignments. One preset can serve several outputs.
+    /// Output preset key (see `OutputPresetKey`) to preset-name assignments. One preset can serve several outputs.
     @Published private(set) var outputPresets: [String: String] {
         didSet { storage.set(outputPresets, forKey: Keys.outputPresets) }
     }
@@ -108,8 +108,8 @@ final class PresetManager: ObservableObject {
     init(storage: UserDefaults = .standard, directory: URL? = nil) {
         self.storage = storage
         self.directory = directory
-        self.outputPresets = storage.dictionary(forKey: Keys.outputPresets) as? [String: String] ?? [:]
-        self.outputDeviceNames = storage.dictionary(forKey: Keys.outputDeviceNames) as? [String: String] ?? [:]
+        self.outputPresets = Self.loadOutputMap(forKey: Keys.outputPresets, from: storage)
+        self.outputDeviceNames = Self.loadOutputMap(forKey: Keys.outputDeviceNames, from: storage)
         self.encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -129,6 +129,12 @@ final class PresetManager: ObservableObject {
             selectPreset(named: "Flat")
             logger.debug("Auto-selected Flat preset as default")
         }
+    }
+
+    /// Re-keys entries saved before `OutputPresetKey` existed, merging duplicates deterministically.
+    private static func loadOutputMap(forKey key: String, from storage: UserDefaults) -> [String: String] {
+        let saved = storage.dictionary(forKey: key) as? [String: String] ?? [:]
+        return Dictionary(saved.map { (OutputPresetKey.make(for: $0.key), $0.value) }, uniquingKeysWith: min)
     }
 
     // MARK: - Directory Management
@@ -309,7 +315,7 @@ final class PresetManager: ObservableObject {
 
     /// Returns the assigned preset, without falling back if it is missing.
     func preset(forOutputDevice uid: String) -> Preset? {
-        guard let name = outputPresets[uid] else { return nil }
+        guard let name = outputPresets[OutputPresetKey.make(for: uid)] else { return nil }
         return preset(named: name)
     }
 
@@ -317,7 +323,7 @@ final class PresetManager: ObservableObject {
     func rememberOutputDevices(_ devices: [AudioDevice]) {
         var names = outputDeviceNames
         for device in devices where device.isValidForSelection {
-            names[device.uid] = device.name
+            names[OutputPresetKey.make(for: device.uid)] = device.name
         }
         if names != outputDeviceNames { outputDeviceNames = names }
     }
@@ -326,7 +332,7 @@ final class PresetManager: ObservableObject {
     func updateOutputPreset(named name: String?, for uid: String) {
         guard !uid.isEmpty else { return }
         if let name, !presetExists(named: name) { return }
-        outputPresets[uid] = name
+        outputPresets[OutputPresetKey.make(for: uid)] = name
     }
 
     /// Loads a preset by name with graceful fallback.
