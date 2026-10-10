@@ -4,6 +4,33 @@ import XCTest
 @MainActor
 final class EqualiserStoreTests: XCTestCase {
 
+    func testStartupOutputPreference_restoresAndSavesBothChoices() throws {
+        let suiteName = "EqualiserStoreTests.\(UUID().uuidString)"
+        let storage = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { storage.removePersistentDomain(forName: suiteName) }
+        let persistence = AppStatePersistence(storage: storage)
+
+        for preference in [false, true] {
+            var snapshot = AppStateSnapshot.default
+            // No input selected: avoid starting an audio pipeline in this test.
+            snapshot.manualModeEnabled = true
+            snapshot.outputDeviceID = "speakers"
+            snapshot.preferMacDefaultOnStartup = preference
+            persistence.save(snapshot)
+
+            let store = EqualiserStore(persistence: persistence)
+            XCTAssertEqual(store.preferMacDefaultOnStartup, preference)
+
+            store.preferMacDefaultOnStartup = !preference
+            XCTAssertEqual(store.selectedOutputDeviceID, "speakers")
+            persistence.save(store.currentSnapshot)
+
+            let restored = try XCTUnwrap(persistence.load())
+            XCTAssertEqual(restored.preferMacDefaultOnStartup, !preference)
+            XCTAssertEqual(restored.outputDeviceID, "speakers")
+        }
+    }
+
     // MARK: - OutputDeviceSelection Tests
 
     func testDetermineAutomaticOutputDevice_preservesValidSelection() {
@@ -133,21 +160,102 @@ final class EqualiserStoreTests: XCTestCase {
         XCTAssertEqual(result, .useMacDefault("airpods"))
     }
 
-    func testDetermineAutomaticOutputDevice_usesMacDefault_overStaleSavedSelection() {
+    func testDetermineAutomaticOutputDevice_preservesCurrent_overMacDefault() {
+        let devices = [
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", transportType: 0),
+        ]
+
+        let result = OutputDeviceSelection.determine(
+            currentSelected: "airpods",
+            macDefault: "builtin",
+            availableDevices: devices
+        )
+
+        XCTAssertEqual(result, .preserveCurrent("airpods"))
+    }
+
+    func testDetermineAutomaticOutputDevice_prefersMacDefault_whenEnabled() {
         let devices = [
             AudioDevice(id: 1, uid: "speakers", name: "Built-in Speakers", transportType: 0),
             AudioDevice(id: 2, uid: "headphones", name: "Headphone Out", transportType: 0),
         ]
 
-        // The saved selection can be stale when the user changes the macOS
-        // output device while Equaliser is not running.
         let result = OutputDeviceSelection.determine(
             currentSelected: "speakers",
             macDefault: "headphones",
-            availableDevices: devices
+            availableDevices: devices,
+            preferMacDefault: true
         )
 
         XCTAssertEqual(result, .useMacDefault("headphones"))
+    }
+
+    func testDetermineAutomaticOutputDevice_prefersMacDefault_recoversSavedOutput() {
+        let devices = [
+            AudioDevice(id: 1, uid: "speakers", name: "Built-in Speakers", transportType: 0),
+            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
+        ]
+
+        for macDefault in [nil, DRIVER_DEVICE_UID, "disconnected-device"] {
+            let result = OutputDeviceSelection.determine(
+                currentSelected: "speakers",
+                macDefault: macDefault,
+                availableDevices: devices,
+                preferMacDefault: true
+            )
+
+            XCTAssertEqual(result, .preserveCurrent("speakers"))
+        }
+    }
+
+    func testDetermineAutomaticOutputDevice_prefersMacDefault_allowsOtherVirtualOutputs() {
+        let devices = [
+            AudioDevice(id: 1, uid: "speakers", name: "Built-in Speakers", transportType: 0),
+            AudioDevice(id: 2, uid: "BlackHole 2ch", name: "BlackHole 2ch", transportType: 0),
+        ]
+
+        let result = OutputDeviceSelection.determine(
+            currentSelected: "speakers",
+            macDefault: "BlackHole 2ch",
+            availableDevices: devices,
+            preferMacDefault: true
+        )
+
+        XCTAssertEqual(result, .useMacDefault("BlackHole 2ch"))
+    }
+
+    func testDetermineAutomaticOutputDevice_prefersMacDefault_withNoValidSavedOutput() {
+        let devices = [
+            AudioDevice(id: 1, uid: "speakers", name: "Built-in Speakers", transportType: 0),
+            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
+        ]
+
+        for current in [nil, DRIVER_DEVICE_UID, "disconnected-device"] {
+            let result = OutputDeviceSelection.determine(
+                currentSelected: current,
+                macDefault: "speakers",
+                availableDevices: devices,
+                preferMacDefault: true
+            )
+
+            XCTAssertEqual(result, .useMacDefault("speakers"))
+        }
+    }
+
+    func testDetermineAutomaticOutputDevice_prefersMacDefault_needsFallback() {
+        let devices = [
+            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
+        ]
+
+        let result = OutputDeviceSelection.determine(
+            currentSelected: "disconnected-device",
+            macDefault: DRIVER_DEVICE_UID,
+            availableDevices: devices,
+            preferMacDefault: true
+        )
+
+        XCTAssertEqual(result, .useFallback)
     }
 
     func testDetermineAutomaticOutputDevice_noCurrent_noMacDefault_needsFallback() {
