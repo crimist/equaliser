@@ -101,17 +101,26 @@ struct PresetMenuContentView: View {
         Picker("Preset", selection: Binding(
             get: { store.presetManager.selectedPresetName },
             set: { name in
-                if let name { store.loadPreset(named: name) }
+                if let name { store.selectPresetFromPicker(named: name) }
             }
         )) {
             if store.presetManager.selectedPresetName == nil {
                 Text("Custom").tag(String?.none)
             }
-            presetSection(title: "Built-in Presets", presets: store.presetManager.builtInPresets)
-            presetSection(title: "Custom Presets", presets: store.presetManager.userPresets)
+            presetSection(title: "Default", presets: allPresets.filter(isDefault))
+            presetSection(title: "Built-in Presets", presets: store.presetManager.builtInPresets.filter { !isDefault($0) })
+            presetSection(title: "Custom Presets", presets: store.presetManager.userPresets.filter { !isDefault($0) })
         }
         .pickerStyle(.inline)
         .labelsHidden()
+    }
+
+    private var allPresets: [Preset] {
+        store.presetManager.builtInPresets + store.presetManager.userPresets
+    }
+
+    private func isDefault(_ preset: Preset) -> Bool {
+        preset.metadata.name == PresetManager.defaultOutputPresetName
     }
 
     @ViewBuilder

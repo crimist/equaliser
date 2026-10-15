@@ -529,10 +529,40 @@ final class EqualiserStore: ObservableObject {
     // MARK: - Preset Management
 
     private func loadOutputPreset(for uid: String?) {
-        guard let uid, let preset = presetManager.preset(forOutputDevice: uid) else { return }
-        loadPreset(preset)
+        guard let uid else { return }
+        let assignment = presetManager.assignment(forOutputDevice: uid)
+        if let name = assignment.presetName, let preset = presetManager.preset(named: name) {
+            loadPreset(preset)
+        }
+        if isBypassed == assignment.eqEnabled { isBypassed = !assignment.eqEnabled }
     }
-    
+
+    private func isCurrentOutput(_ uid: String) -> Bool {
+        guard let current = selectedOutputDeviceID else { return false }
+        return OutputPresetKey.make(for: current) == OutputPresetKey.make(for: uid)
+    }
+
+    /// Assigns a preset to an output (nil reverts to the default), applying it if that output is active.
+    func setOutputPreset(named name: String?, forOutputDevice uid: String) {
+        presetManager.updateOutputPreset(named: name, for: uid)
+        if isCurrentOutput(uid) { loadOutputPreset(for: uid) }
+    }
+
+    /// Turns System EQ on or off for an output, applying it if that output is active.
+    func setOutputEQEnabled(_ enabled: Bool, forOutputDevice uid: String) {
+        presetManager.setOutputEQEnabled(enabled, forOutputDevice: uid)
+        if isCurrentOutput(uid) { isBypassed = !enabled }
+    }
+
+    /// Loads a preset picked by the user and saves it as the current output's preset.
+    func selectPresetFromPicker(named name: String) {
+        guard let uid = selectedOutputDeviceID, presetManager.presetExists(named: name) else {
+            loadPreset(named: name)
+            return
+        }
+        setOutputPreset(named: name, forOutputDevice: uid)
+    }
+
     /// Saves the current EQ settings as a new preset.
     @discardableResult
     func saveCurrentAsPreset(named name: String) throws -> Preset {
