@@ -373,6 +373,25 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
+    func testForgettingOutputRemovesItFromPanel() throws {
+        try withPresets { manager, storage, directory in
+            let store = makeStore(manager: manager, storage: storage)
+            let viewModel = DevicePresetsViewModel(store: store)
+            manager.rememberOutputDevices([AudioDevice(id: 1, uid: "blackhole", name: "BlackHole 16ch", transportType: 0)])
+            manager.updateOutputPreset(named: "Rock", for: "blackhole")
+            manager.setOutputEQEnabled(false, forOutputDevice: "blackhole")
+            let device = try XCTUnwrap(viewModel.devices.first { $0.uid == "blackhole" })
+            XCTAssertFalse(device.isAvailable)
+
+            viewModel.remove(device)
+            XCTAssertNil(viewModel.devices.first { $0.uid == "blackhole" })
+            let restored = PresetManager(storage: storage, directory: directory)
+            XCTAssertNil(restored.outputDeviceNames["blackhole"])
+            XCTAssertNil(restored.outputPresets["blackhole"])
+            XCTAssertFalse(restored.outputsOff.contains("blackhole"))
+        }
+    }
+
     func testWithoutDefaultPresetUnassignedOutputKeepsCurrentEQ() throws {
         try withPresets { manager, storage, _ in
             try manager.deletePreset(named: PresetManager.defaultOutputPresetName)

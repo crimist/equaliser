@@ -60,4 +60,10 @@ final class DevicePresetsViewModel {
     func setEQEnabled(_ enabled: Bool, for uid: String) {
         store.setOutputEQEnabled(enabled, forOutputDevice: uid)
     }
+
+    /// Forgets an output that is no longer connected.
+    func remove(_ device: PresetDevice) {
+        guard !device.isAvailable else { return }
+        store.presetManager.forgetOutputDevice(device.uid)
+    }
 }

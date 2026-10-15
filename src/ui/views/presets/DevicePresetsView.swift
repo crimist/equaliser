@@ -37,6 +37,7 @@ struct DevicePresetsView: View {
                 Text("Active")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .padding(.trailing, 16)
             }
 
             Divider()
@@ -79,6 +80,18 @@ struct DevicePresetsView: View {
                                 .labelsHidden()
                                 .help("System EQ on for \(device.name)")
                                 .accessibilityLabel("System EQ for \(device.name)")
+
+                                Button {
+                                    viewModel.remove(device)
+                                } label: {
+                                    Image(systemName: "minus.circle")
+                                }
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(.secondary)
+                                .opacity(device.isAvailable ? 0 : 1)
+                                .disabled(device.isAvailable)
+                                .help("Forget \(device.name)")
+                                .accessibilityLabel("Forget \(device.name)")
                             }
                             .frame(height: 36)
                         }
@@ -88,6 +101,6 @@ struct DevicePresetsView: View {
             }
         }
         .padding(14)
-        .frame(width: 420)
+        .frame(width: 440)
     }
 }

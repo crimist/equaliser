@@ -361,6 +361,14 @@ final class PresetManager: ObservableObject {
         if enabled { outputsOff.remove(key) } else { outputsOff.insert(key) }
     }
 
+    /// Removes everything stored for an output, including its remembered name.
+    func forgetOutputDevice(_ uid: String) {
+        let key = OutputPresetKey.make(for: uid)
+        outputPresets[key] = nil
+        outputsOff.remove(key)
+        outputDeviceNames[key] = nil
+    }
+
     /// Display name for a preset, marking the default output preset.
     static func displayName(forPreset name: String) -> String {
         name == defaultOutputPresetName ? "\(name) (default)" : name
