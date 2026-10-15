@@ -542,7 +542,7 @@ final class EqualiserStore: ObservableObject {
         return OutputPresetKey.make(for: current) == OutputPresetKey.make(for: uid)
     }
 
-    /// Assigns a preset to an output (nil clears it), applying it if that output is active.
+    /// Assigns a preset to an output (nil reverts to the default), applying it if that output is active.
     func setOutputPreset(named name: String?, forOutputDevice uid: String) {
         presetManager.updateOutputPreset(named: name, for: uid)
         if isCurrentOutput(uid) { loadOutputPreset(for: uid) }

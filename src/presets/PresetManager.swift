@@ -342,13 +342,16 @@ final class PresetManager: ObservableObject {
         outputPresets[OutputPresetKey.make(for: uid)] = name
     }
 
+    /// Preset used by outputs that have no assignment of their own.
+    static let defaultOutputPresetName = "Flat"
+
     /// Returns what should happen when this output becomes active.
+    /// Unassigned outputs fall back to the default preset.
     func assignment(forOutputDevice uid: String) -> OutputPresetAssignment {
         let key = OutputPresetKey.make(for: uid)
-        return OutputPresetAssignment(
-            presetName: preset(forOutputDevice: uid)?.metadata.name,
-            eqEnabled: !outputsOff.contains(key)
-        )
+        let name = preset(forOutputDevice: uid)?.metadata.name
+            ?? (presetExists(named: Self.defaultOutputPresetName) ? Self.defaultOutputPresetName : nil)
+        return OutputPresetAssignment(presetName: name, eqEnabled: !outputsOff.contains(key))
     }
 
     /// Turns System EQ on or off for an output without changing its preset.
@@ -356,6 +359,11 @@ final class PresetManager: ObservableObject {
         guard !uid.isEmpty else { return }
         let key = OutputPresetKey.make(for: uid)
         if enabled { outputsOff.remove(key) } else { outputsOff.insert(key) }
+    }
+
+    /// Display name for a preset, marking the default output preset.
+    static func displayName(forPreset name: String) -> String {
+        name == defaultOutputPresetName ? "\(name) (default)" : name
     }
 
     /// Loads a preset by name with graceful fallback.

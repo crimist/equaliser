@@ -6,6 +6,23 @@ struct DevicePresetPicker: NSViewRepresentable {
     @Binding var selection: String?
     let label: String
 
+    enum Entry: Equatable {
+        /// Shown only when there is no default preset to fall back to.
+        case notSet
+        case separator
+        case preset(String)
+    }
+
+    /// Menu entries in display order: the default preset first, then the rest.
+    private var entries: [Entry] {
+        let defaultName = PresetManager.defaultOutputPresetName
+        var entries: [Entry] = selection == nil ? [.notSet] : []
+        if names.contains(defaultName) {
+            entries += [.preset(defaultName), .separator]
+        }
+        return entries + names.filter { $0 != defaultName }.map(Entry.preset)
+    }
+
     func makeNSView(context: Context) -> NSPopUpButton {
         let button = NSPopUpButton()
         button.controlSize = .small
@@ -18,17 +35,46 @@ struct DevicePresetPicker: NSViewRepresentable {
 
     func updateNSView(_ button: NSPopUpButton, context: Context) {
         context.coordinator.selection = $selection
-        let titles = ["None"] + names
-        if button.itemTitles != titles {
+        let entries = entries
+        if context.coordinator.entries != entries {
+            context.coordinator.entries = entries
             button.removeAllItems()
-            button.addItems(withTitles: titles)
-            for (index, name) in names.enumerated() {
-                button.item(at: index + 1)?.representedObject = name
+            for (index, entry) in entries.enumerated() {
+                let item: NSMenuItem
+                switch entry {
+                case .separator:
+                    item = .separator()
+                case .notSet:
+                    item = NSMenuItem(title: Self.title(for: nil), action: nil, keyEquivalent: "")
+                case .preset(let name):
+                    item = NSMenuItem(title: Self.title(for: name), action: nil, keyEquivalent: "")
+                    item.attributedTitle = Self.attributedTitle(for: name, font: button.font)
+                }
+                item.tag = index
+                button.menu?.addItem(item)
             }
         }
-        let index = selection.flatMap { names.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
-        button.selectItem(at: index)
+        let selected = selection.map(Entry.preset) ?? .notSet
+        button.selectItem(at: entries.firstIndex(of: selected) ?? 0)
         button.setAccessibilityLabel(label)
+    }
+
+    static func title(for name: String?) -> String {
+        name.map(PresetManager.displayName(forPreset:)) ?? "Not set"
+    }
+
+    /// Dims the "(default)" suffix of the default preset.
+    private static func attributedTitle(for name: String, font: NSFont?) -> NSAttributedString {
+        let font = font ?? .menuFont(ofSize: 0)
+        let attributed = NSMutableAttributedString(string: name, attributes: [.font: font])
+        let suffix = title(for: name).dropFirst(name.count)
+        if !suffix.isEmpty {
+            attributed.append(NSAttributedString(string: String(suffix), attributes: [
+                .font: font,
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ]))
+        }
+        return attributed
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSPopUpButton, context: Context) -> CGSize? {
@@ -42,6 +88,7 @@ struct DevicePresetPicker: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         var selection: Binding<String?>
+        var entries: [Entry] = []
 
         init(selection: Binding<String?>) {
             self.selection = selection
@@ -49,7 +96,9 @@ struct DevicePresetPicker: NSViewRepresentable {
         }
 
         @objc func selectPreset(_ sender: NSPopUpButton) {
-            selection.wrappedValue = sender.selectedItem?.representedObject as? String
+            guard let tag = sender.selectedItem?.tag, entries.indices.contains(tag),
+                  case .preset(let name) = entries[tag] else { return }
+            selection.wrappedValue = name
         }
     }
 }

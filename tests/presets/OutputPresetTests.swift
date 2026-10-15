@@ -112,7 +112,7 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
-    func testUnassignedOutputAndRepeatedSelectionPreserveUnsavedEdits() throws {
+    func testUnassignedOutputUsesDefaultAndRepeatedSelectionPreservesUnsavedEdits() throws {
         try withPresets { manager, storage, _ in
             let store = makeStore(manager: manager, storage: storage)
             manager.updateOutputPreset(named: "Bass Boost", for: "headphones")
@@ -123,11 +123,16 @@ final class OutputPresetTests: XCTestCase {
             XCTAssertEqual(store.eqConfiguration.bands[0].gain, 3)
             XCTAssertTrue(manager.isModified)
 
-            store.selectedOutputDeviceID = "speakers"
+            // No output leaves the EQ alone.
             store.selectedOutputDeviceID = nil
             XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
             XCTAssertEqual(store.eqConfiguration.bands[0].gain, 3)
             XCTAssertTrue(manager.isModified)
+
+            // An unassigned output falls back to the default preset.
+            store.selectedOutputDeviceID = "speakers"
+            XCTAssertEqual(manager.selectedPresetName, PresetManager.defaultOutputPresetName)
+            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 0)
 
             // Returning to an assigned device reapplies the saved preset, even if
             // its name is still selected with unsaved edits.
@@ -220,7 +225,7 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
-    func testEditingCurrentOutputAppliesPresetAndClearingKeepsEQ() throws {
+    func testEditingCurrentOutputAppliesPresetAndClearingRevertsToDefault() throws {
         try withPresets { manager, storage, _ in
             let store = makeStore(manager: manager, storage: storage, output: "headphones")
             let viewModel = DevicePresetsViewModel(store: store)
@@ -229,10 +234,10 @@ final class OutputPresetTests: XCTestCase {
             store.updateBandGain(index: 0, gain: 3)
 
             viewModel.updatePreset(named: nil, for: "headphones")
-            XCTAssertNil(viewModel.presetName(for: "headphones"))
-            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
-            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 3)
-            XCTAssertTrue(manager.isModified)
+            XCTAssertEqual(viewModel.presetName(for: "headphones"), PresetManager.defaultOutputPresetName)
+            XCTAssertEqual(manager.selectedPresetName, PresetManager.defaultOutputPresetName)
+            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 0)
+            XCTAssertFalse(manager.isModified)
         }
     }
 
@@ -299,7 +304,7 @@ final class OutputPresetTests: XCTestCase {
             XCTAssertEqual(restored.assignment(forOutputDevice: "speakers"),
                            OutputPresetAssignment(presetName: "Bass Boost", eqEnabled: false))
             XCTAssertEqual(restored.assignment(forOutputDevice: "headphones"),
-                           OutputPresetAssignment(presetName: nil, eqEnabled: true))
+                           OutputPresetAssignment(presetName: PresetManager.defaultOutputPresetName, eqEnabled: true))
 
             restored.setOutputEQEnabled(true, forOutputDevice: "speakers")
             XCTAssertEqual(restored.assignment(forOutputDevice: "speakers").eqEnabled, true)
@@ -318,10 +323,10 @@ final class OutputPresetTests: XCTestCase {
             XCTAssertTrue(store.isBypassed)
             XCTAssertEqual(manager.selectedPresetName, "Rock")
 
-            // An unassigned output keeps the current preset, with EQ on.
+            // An unassigned output loads the default preset with EQ on.
             store.selectedOutputDeviceID = "monitor"
             XCTAssertFalse(store.isBypassed)
-            XCTAssertEqual(manager.selectedPresetName, "Rock")
+            XCTAssertEqual(manager.selectedPresetName, PresetManager.defaultOutputPresetName)
 
             store.selectedOutputDeviceID = "speakers"
             XCTAssertTrue(store.isBypassed)
@@ -346,6 +351,17 @@ final class OutputPresetTests: XCTestCase {
             // Other outputs do not touch the live EQ.
             store.setOutputEQEnabled(false, forOutputDevice: "headphones")
             XCTAssertFalse(store.isBypassed)
+        }
+    }
+
+    func testWithoutDefaultPresetUnassignedOutputKeepsCurrentEQ() throws {
+        try withPresets { manager, storage, _ in
+            try manager.deletePreset(named: PresetManager.defaultOutputPresetName)
+            let store = makeStore(manager: manager, storage: storage)
+            store.loadPreset(named: "Bass Boost")
+            store.selectedOutputDeviceID = "speakers"
+            XCTAssertNil(manager.assignment(forOutputDevice: "speakers").presetName)
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
         }
     }
 
