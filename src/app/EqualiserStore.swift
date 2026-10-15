@@ -554,6 +554,15 @@ final class EqualiserStore: ObservableObject {
         if isCurrentOutput(uid) { isBypassed = !enabled }
     }
 
+    /// Loads a preset picked by the user and saves it as the current output's preset.
+    func selectPresetFromPicker(named name: String) {
+        guard let uid = selectedOutputDeviceID, presetManager.presetExists(named: name) else {
+            loadPreset(named: name)
+            return
+        }
+        setOutputPreset(named: name, forOutputDevice: uid)
+    }
+
     /// Saves the current EQ settings as a new preset.
     @discardableResult
     func saveCurrentAsPreset(named name: String) throws -> Preset {

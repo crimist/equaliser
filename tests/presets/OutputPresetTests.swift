@@ -354,6 +354,25 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
+    func testPickingPresetSavesItForCurrentOutputAndKeepsEQSetting() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage)
+            manager.setOutputEQEnabled(false, forOutputDevice: "speakers")
+            store.selectedOutputDeviceID = "speakers"
+
+            store.selectPresetFromPicker(named: "Bass Boost")
+            XCTAssertEqual(manager.assignment(forOutputDevice: "speakers"),
+                           OutputPresetAssignment(presetName: "Bass Boost", eqEnabled: false))
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
+            XCTAssertTrue(store.isBypassed)
+
+            store.selectedOutputDeviceID = "headphones"
+            store.selectPresetFromPicker(named: "Flat")
+            XCTAssertEqual(manager.assignment(forOutputDevice: "headphones").presetName, "Flat")
+            XCTAssertEqual(manager.assignment(forOutputDevice: "speakers").presetName, "Bass Boost")
+        }
+    }
+
     func testWithoutDefaultPresetUnassignedOutputKeepsCurrentEQ() throws {
         try withPresets { manager, storage, _ in
             try manager.deletePreset(named: PresetManager.defaultOutputPresetName)

@@ -101,7 +101,7 @@ struct PresetMenuContentView: View {
         Picker("Preset", selection: Binding(
             get: { store.presetManager.selectedPresetName },
             set: { name in
-                if let name { store.loadPreset(named: name) }
+                if let name { store.selectPresetFromPicker(named: name) }
             }
         )) {
             if store.presetManager.selectedPresetName == nil {
