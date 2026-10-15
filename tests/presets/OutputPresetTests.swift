@@ -290,6 +290,65 @@ final class OutputPresetTests: XCTestCase {
         }
     }
 
+    func testEQToggleIsIndependentOfPresetAndPersists() throws {
+        try withPresets { manager, storage, directory in
+            manager.updateOutputPreset(named: "Bass Boost", for: "speakers")
+            manager.setOutputEQEnabled(false, forOutputDevice: "speakers")
+
+            let restored = PresetManager(storage: storage, directory: directory)
+            XCTAssertEqual(restored.assignment(forOutputDevice: "speakers"),
+                           OutputPresetAssignment(presetName: "Bass Boost", eqEnabled: false))
+            XCTAssertEqual(restored.assignment(forOutputDevice: "headphones"),
+                           OutputPresetAssignment(presetName: nil, eqEnabled: true))
+
+            restored.setOutputEQEnabled(true, forOutputDevice: "speakers")
+            XCTAssertEqual(restored.assignment(forOutputDevice: "speakers").eqEnabled, true)
+            XCTAssertEqual(restored.assignment(forOutputDevice: "speakers").presetName, "Bass Boost")
+        }
+    }
+
+    func testOutputWithEQOffLoadsPresetAndBypasses() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage)
+            manager.updateOutputPreset(named: "Bass Boost", for: "headphones")
+            manager.updateOutputPreset(named: "Rock", for: "speakers")
+            manager.setOutputEQEnabled(false, forOutputDevice: "speakers")
+
+            store.selectedOutputDeviceID = "speakers"
+            XCTAssertTrue(store.isBypassed)
+            XCTAssertEqual(manager.selectedPresetName, "Rock")
+
+            // An unassigned output keeps the current preset, with EQ on.
+            store.selectedOutputDeviceID = "monitor"
+            XCTAssertFalse(store.isBypassed)
+            XCTAssertEqual(manager.selectedPresetName, "Rock")
+
+            store.selectedOutputDeviceID = "speakers"
+            XCTAssertTrue(store.isBypassed)
+            store.selectedOutputDeviceID = "headphones"
+            XCTAssertFalse(store.isBypassed)
+            XCTAssertEqual(manager.selectedPresetName, "Bass Boost")
+        }
+    }
+
+    func testTogglingEQOnCurrentOutputAppliesImmediatelyAndKeepsEdits() throws {
+        try withPresets { manager, storage, _ in
+            let store = makeStore(manager: manager, storage: storage)
+            store.selectedOutputDeviceID = "speakers"
+            store.updateBandGain(index: 0, gain: 3)
+
+            store.setOutputEQEnabled(false, forOutputDevice: "speakers")
+            XCTAssertTrue(store.isBypassed)
+            store.setOutputEQEnabled(true, forOutputDevice: "speakers")
+            XCTAssertFalse(store.isBypassed)
+            XCTAssertEqual(store.eqConfiguration.bands[0].gain, 3)
+
+            // Other outputs do not touch the live EQ.
+            store.setOutputEQEnabled(false, forOutputDevice: "headphones")
+            XCTAssertFalse(store.isBypassed)
+        }
+    }
+
     private func makeStore(manager: PresetManager, storage: UserDefaults, output: String? = nil) -> EqualiserStore {
         let persistence = AppStatePersistence(storage: storage)
         var snapshot = AppStateSnapshot.default

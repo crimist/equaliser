@@ -75,6 +75,11 @@ final class PresetManager: ObservableObject {
         didSet { storage.set(outputDeviceNames, forKey: Keys.outputDeviceNames) }
     }
 
+    /// Output preset keys whose assignment is "System EQ off".
+    @Published private(set) var outputsOff: Set<String> {
+        didSet { storage.set(outputsOff.sorted(), forKey: Keys.outputsOff) }
+    }
+
     // MARK: - Private Properties
 
     private let fileManager = FileManager.default
@@ -88,6 +93,7 @@ final class PresetManager: ObservableObject {
         static let selectedPreset = "equalizer.selectedPreset"
         static let outputPresets = "equaliser.outputPresets"
         static let outputDeviceNames = "equaliser.outputDeviceNames"
+        static let outputsOff = "equaliser.outputsOff"
     }
 
     /// The directory where presets are stored.
@@ -110,6 +116,7 @@ final class PresetManager: ObservableObject {
         self.directory = directory
         self.outputPresets = Self.loadOutputMap(forKey: Keys.outputPresets, from: storage)
         self.outputDeviceNames = Self.loadOutputMap(forKey: Keys.outputDeviceNames, from: storage)
+        self.outputsOff = Set((storage.stringArray(forKey: Keys.outputsOff) ?? []).map(OutputPresetKey.make))
         self.encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -333,6 +340,22 @@ final class PresetManager: ObservableObject {
         guard !uid.isEmpty else { return }
         if let name, !presetExists(named: name) { return }
         outputPresets[OutputPresetKey.make(for: uid)] = name
+    }
+
+    /// Returns what should happen when this output becomes active.
+    func assignment(forOutputDevice uid: String) -> OutputPresetAssignment {
+        let key = OutputPresetKey.make(for: uid)
+        return OutputPresetAssignment(
+            presetName: preset(forOutputDevice: uid)?.metadata.name,
+            eqEnabled: !outputsOff.contains(key)
+        )
+    }
+
+    /// Turns System EQ on or off for an output without changing its preset.
+    func setOutputEQEnabled(_ enabled: Bool, forOutputDevice uid: String) {
+        guard !uid.isEmpty else { return }
+        let key = OutputPresetKey.make(for: uid)
+        if enabled { outputsOff.remove(key) } else { outputsOff.insert(key) }
     }
 
     /// Loads a preset by name with graceful fallback.

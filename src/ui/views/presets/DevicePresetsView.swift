@@ -30,8 +30,14 @@ struct DevicePresetsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Device Presets")
-                .font(.headline)
+            HStack(spacing: 12) {
+                Text("Device Presets")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Active")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Divider()
 
@@ -64,6 +70,15 @@ struct DevicePresetsView: View {
                                     label: "Preset for \(device.name)"
                                 )
                                 .frame(width: 160, height: 24)
+
+                                Toggle("EQ", isOn: Binding(
+                                    get: { viewModel.isEQEnabled(for: device.uid) },
+                                    set: { viewModel.setEQEnabled($0, for: device.uid) }
+                                ))
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .help("System EQ on for \(device.name)")
+                                .accessibilityLabel("System EQ for \(device.name)")
                             }
                             .frame(height: 36)
                         }
@@ -73,6 +88,6 @@ struct DevicePresetsView: View {
             }
         }
         .padding(14)
-        .frame(width: 400)
+        .frame(width: 420)
     }
 }

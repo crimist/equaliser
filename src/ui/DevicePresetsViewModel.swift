@@ -21,7 +21,7 @@ final class DevicePresetsViewModel {
 
     var devices: [PresetDevice] {
         var names = store.presetManager.outputDeviceNames
-        for uid in store.presetManager.outputPresets.keys where names[uid] == nil {
+        for uid in Array(store.presetManager.outputPresets.keys) + store.presetManager.outputsOff where names[uid] == nil {
             names[uid] = uid
         }
         let available = Set(store.outputDevices.filter(\.isValidForSelection).map { OutputPresetKey.make(for: $0.uid) })
@@ -46,13 +46,18 @@ final class DevicePresetsViewModel {
     }
 
     func presetName(for uid: String) -> String? {
-        store.presetManager.preset(forOutputDevice: uid)?.metadata.name
+        store.presetManager.assignment(forOutputDevice: uid).presetName
     }
 
     func updatePreset(named name: String?, for uid: String) {
-        store.presetManager.updateOutputPreset(named: name, for: uid)
-        if OutputPresetKey.make(for: uid) == selectedKey, let name {
-            store.loadPreset(named: name)
-        }
+        store.setOutputPreset(named: name, forOutputDevice: uid)
+    }
+
+    func isEQEnabled(for uid: String) -> Bool {
+        store.presetManager.assignment(forOutputDevice: uid).eqEnabled
+    }
+
+    func setEQEnabled(_ enabled: Bool, for uid: String) {
+        store.setOutputEQEnabled(enabled, forOutputDevice: uid)
     }
 }
